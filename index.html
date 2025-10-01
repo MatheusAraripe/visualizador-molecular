@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Moléculas 3D - Ciclos de Otimização</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; }
+        #container3d { width: 100vw; height: 100vh; }
+        select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23CBD5E1%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right .7rem center; background-size: .65em auto; }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.162.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.162.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-800 text-white font-sans">
+
+    <div class="absolute top-4 left-4 z-10 bg-gray-900 bg-opacity-80 p-4 rounded-lg shadow-lg w-64">
+        <h1 class="text-xl font-bold mb-2">Ciclos de Otimização</h1>
+        <p class="text-sm text-gray-400 mb-4">Selecione uma versão para visualizar.</p>
+        <div class="relative">
+            <select id="version-select" class="w-full bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option>Carregando...</option>
+            </select>
+        </div>
+    </div>
+
+    <div id="container3d"></div>
+
+    <script type="module">
+        // PASSO 2: Voltar a usar os nomes curtos (bare specifiers)
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Variáveis Globais ---
+        let scene, camera, renderer, controls, moleculeGroup;
+        let allMoleculeVersions = [];
+
+        // (O restante do código permanece o mesmo)
+
+        // --- Constantes de Configuração ---
+        const atomData = { 'H':{color:0xffffff,radius:0.25},'C':{color:0x444444,radius:0.4},'N':{color:0x0000ff,radius:0.42},'O':{color:0xff0000,radius:0.42},'DEFAULT':{color:0xcccccc,radius:0.4} };
+        const covalentRadii = { 'H':0.37,'C':0.77,'N':0.75,'O':0.73,'DEFAULT':0.6 };
+        const BOND_DISTANCE_TOLERANCE = 1.2;
+
+        async function main() {
+            initThreeJS();
+            try {
+                const fileContent = await loadMoleculeFile('data/data_limpo.txt');
+                allMoleculeVersions = parseAllVersions(fileContent);
+                if (allMoleculeVersions.length > 0) {
+                    populateVersionSelector(allMoleculeVersions.length);
+                    displayMoleculeVersion(0);
+                } else {
+                    document.getElementById('version-select').innerHTML = '<option>Nenhuma versão encontrada.</option>';
+                }
+            } catch (error) {
+                console.error("Erro ao carregar ou processar o arquivo:", error);
+                document.getElementById('version-select').innerHTML = '<option>Falha ao carregar.</option>';
+            }
+        }
+
+        function populateVersionSelector(numVersions) {
+            const selector = document.getElementById('version-select');
+            selector.innerHTML = '';
+            for (let i = 0; i < numVersions; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.innerText = `Versão ${i + 1}`;
+                selector.appendChild(option);
+            }
+            selector.addEventListener('change', (event) => {
+                displayMoleculeVersion(parseInt(event.target.value, 10));
+            });
+        }
+
+        function displayMoleculeVersion(index) {
+            if (!allMoleculeVersions[index]) return;
+            document.getElementById('version-select').value = index;
+            while (moleculeGroup.children.length > 0) {
+                moleculeGroup.remove(moleculeGroup.children[0]);
+            }
+            let atoms = allMoleculeVersions[index];
+            const center = calculateCenter(atoms);
+            const centeredAtoms = atoms.map(atom => ({
+                ...atom,
+                vec: new THREE.Vector3().copy(atom.vec).sub(center)
+            }));
+            drawAtoms(centeredAtoms);
+            drawBonds(centeredAtoms);
+        }
+
+        async function loadMoleculeFile(url) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return await response.text();
+        }
+
+        function parseAllVersions(text) {
+            return text.split('GEOMETRY OPTIMIZATION CYCLE')
+                .slice(1)
+                .map(block => parseSingleMolecule(block));
+        }
+
+        function parseSingleMolecule(blockText) {
+            const atoms = [];
+            for (const line of blockText.split('\n')) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length === 4) {
+                    const symbol = parts[0].toUpperCase();
+                    const [x, y, z] = parts.slice(1).map(parseFloat);
+                    if (!isNaN(x) && /^[A-Z]{1,2}$/.test(symbol)) {
+                        atoms.push({ symbol, vec: new THREE.Vector3(x, y, z) });
+                    }
+                }
+            }
+            return atoms;
+        }
+
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111827);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 25;
+            const container = document.getElementById('container3d');
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xcccccc, 0.8));
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+            directionalLight.position.set(1, 1, 0.5).normalize();
+            scene.add(directionalLight);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            moleculeGroup = new THREE.Group();
+            scene.add(moleculeGroup);
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }
+
+        function calculateCenter(atoms) {
+            const center = new THREE.Vector3();
+            if (atoms.length === 0) return center;
+            atoms.forEach(atom => center.add(atom.vec));
+            return center.divideScalar(atoms.length);
+        }
+
+        function drawAtoms(atoms) {
+            atoms.forEach(atom => {
+                const config = atomData[atom.symbol] || atomData.DEFAULT;
+                const geometry = new THREE.SphereGeometry(config.radius, 32, 32);
+                const material = new THREE.MeshStandardMaterial({ color: config.color, metalness: 0.2, roughness: 0.5 });
+                const sphere = new THREE.Mesh(geometry, material);
+                sphere.position.copy(atom.vec);
+                moleculeGroup.add(sphere);
+            });
+        }
+
+        function drawBonds(atoms) {
+            const bondMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.1, roughness: 0.6 });
+            for (let i = 0; i < atoms.length; i++) {
+                for (let j = i + 1; j < atoms.length; j++) {
+                    const atom1 = atoms[i];
+                    const atom2 = atoms[j];
+                    const maxBondLength = (covalentRadii[atom1.symbol] || covalentRadii.DEFAULT) + (covalentRadii[atom2.symbol] || covalentRadii.DEFAULT);
+                    const distance = atom1.vec.distanceTo(atom2.vec);
+                    if (distance > 0.5 && distance < maxBondLength * BOND_DISTANCE_TOLERANCE) {
+                        const bondGeometry = new THREE.CylinderGeometry(0.1, 0.1, distance, 16);
+                        const bondMesh = new THREE.Mesh(bondGeometry, bondMaterial);
+                        const midpoint = new THREE.Vector3().addVectors(atom1.vec, atom2.vec).multiplyScalar(0.5);
+                        bondMesh.position.copy(midpoint);
+                        const direction = new THREE.Vector3().subVectors(atom2.vec, atom1.vec).normalize();
+                        bondMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+                        moleculeGroup.add(bondMesh);
+                    }
+                }
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        main();
+    </script>
+</body>
+</html>
