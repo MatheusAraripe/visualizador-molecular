@@ -24,10 +24,11 @@ const atomData = {
 };
 const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
 const BOND_DISTANCE_TOLERANCE = 1.2;
+const HIGHLIGHT_COLORS = {
+  end_point: 0x00ff00, // Verde para as pontas
+  vertex: 0xff8c00, // Laranja para o centro (vértice)
+};
 
-/**
- * Função principal que orquestra a aplicação.
- */
 const main = async () => {
   initThreeJS();
   setupEventListeners();
@@ -48,8 +49,6 @@ const main = async () => {
   }
 };
 
-// --- Funções de Manipulação do DOM e UI ---
-
 const populateVersionSelector = (numVersions) => {
   const selector = document.getElementById("version-select");
   selector.innerHTML = "";
@@ -63,15 +62,6 @@ const populateVersionSelector = (numVersions) => {
     displayMoleculeVersion(parseInt(event.target.value, 10));
   });
 };
-
-const updateAngleInstructions = () => {
-  const instructions = document.getElementById("angle-instructions");
-  const count = selectedAtomsForAngle.length;
-  instructions.innerText =
-    count < 3 ? `Selecione ${3 - count} átomo(s).` : `Ângulo calculado.`;
-};
-
-// --- Funções de Lógica Principal do Three.js ---
 
 const displayMoleculeVersion = (index) => {
   if (!allMoleculeVersions[index]) return;
@@ -96,8 +86,6 @@ const setupEventListeners = () => {
   window.addEventListener("keydown", handleKeyDown);
   renderer.domElement.addEventListener("mousedown", onMouseDown);
 };
-
-// --- Lógica de Medição de Ângulo ---
 
 const toggleAngleMode = () => {
   isAngleModeActive = !isAngleModeActive;
@@ -146,32 +134,41 @@ const handleAtomSelection = (clickedAtom) => {
 const selectAtom = (atom) => {
   const originalMaterial = atom.material;
   selectedAtomsForAngle.push({ atom, originalMaterial });
-  const highlightMaterial = originalMaterial.clone();
-  highlightMaterial.emissive.setHex(0x00ff00);
-  atom.material = highlightMaterial;
-
+  applyHighlights();
   updateAngleInstructions();
-
   if (selectedAtomsForAngle.length === 3) {
     calculateAndDisplayAngle();
   }
 };
 
 const deselectAtom = (index) => {
-  const { atom, originalMaterial } = selectedAtomsForAngle[index];
-  atom.material = originalMaterial;
+  clearHighlights();
   selectedAtomsForAngle.splice(index, 1);
+  applyHighlights();
   clearAngleHelpers();
-
   updateAngleInstructions();
 };
 
 const clearAngleSelection = () => {
+  clearHighlights();
+  selectedAtomsForAngle = [];
+  clearAngleHelpers();
+};
+
+const clearHighlights = () => {
   selectedAtomsForAngle.forEach(({ atom, originalMaterial }) => {
     atom.material = originalMaterial;
   });
-  selectedAtomsForAngle = [];
-  clearAngleHelpers();
+};
+
+const applyHighlights = () => {
+  selectedAtomsForAngle.forEach(({ atom, originalMaterial }, index) => {
+    const highlightMaterial = originalMaterial.clone();
+    highlightMaterial.emissive.setHex(
+      index === 1 ? HIGHLIGHT_COLORS.vertex : HIGHLIGHT_COLORS.end_point
+    );
+    atom.material = highlightMaterial;
+  });
 };
 
 const clearAngleHelpers = () => {
@@ -184,7 +181,15 @@ const clearAngleHelpers = () => {
   if (angleText) angleText.innerText = "";
 };
 
+const updateAngleInstructions = () => {
+  const instructions = document.getElementById("angle-instructions");
+  const count = selectedAtomsForAngle.length;
+  instructions.innerText =
+    count < 3 ? `Selecione ${3 - count} átomo(s).` : `Ângulo calculado.`;
+};
+
 const calculateAndDisplayAngle = () => {
+  // Limpa apenas os helpers antigos (se houver) e o texto da UI
   clearAngleHelpers();
   const [atomA, atomB, atomC] = selectedAtomsForAngle.map(
     (item) => item.atom.position
@@ -193,69 +198,10 @@ const calculateAndDisplayAngle = () => {
   const v2 = new THREE.Vector3().subVectors(atomC, atomB);
   const angleRad = v1.angleTo(v2);
   const angleDeg = THREE.MathUtils.radToDeg(angleRad);
+
+  // Apenas atualiza o painel da UI, sem desenhar o arco em 3D
   document.getElementById("angle-text").innerText = `${angleDeg.toFixed(2)}°`;
-
-  drawAngleArc(v1, v2, atomB);
-  drawAngleLabel(v1, v2, atomB, `${angleDeg.toFixed(1)}°`);
 };
-
-// --- Funções Auxiliares de Desenho 3D ---
-
-const drawAngleArc = (v1, v2, centerPoint) => {
-  const ARC_RADIUS = 0.6;
-  const segments = 32;
-  const points = [];
-  const startVec = v1.clone().normalize();
-  const endVec = v2.clone().normalize();
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const intermediateVec = startVec.clone().slerp(endVec, t);
-    points.push(intermediateVec.setLength(ARC_RADIUS));
-  }
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
-  const arc = new THREE.Line(geometry, material);
-  arc.position.copy(centerPoint);
-  angleHelpersGroup.add(arc);
-};
-
-const drawAngleLabel = (v1, v2, centerPoint, text) => {
-  const LABEL_RADIUS_OFFSET = 0.8;
-  const startVec = v1.clone().normalize();
-  const endVec = v2.clone().normalize();
-  const textPosition = startVec
-    .clone()
-    .slerp(endVec, 0.5)
-    .setLength(LABEL_RADIUS_OFFSET)
-    .add(centerPoint);
-  const label = makeTextSprite(text);
-  label.position.copy(textPosition);
-  angleHelpersGroup.add(label);
-};
-
-const makeTextSprite = (message, opts = {}) => {
-  const {
-    fontface = "Arial",
-    fontsize = 24,
-    textColor = { r: 200, g: 255, b: 255, a: 1.0 },
-  } = opts;
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-  context.font = `Bold ${fontsize}px ${fontface}`;
-  const metrics = context.measureText(message);
-  canvas.width = metrics.width + 8;
-  canvas.height = fontsize + 8;
-  context.font = `Bold ${fontsize}px ${fontface}`;
-  context.fillStyle = `rgba(${textColor.r}, ${textColor.g}, ${textColor.b}, ${textColor.a})`;
-  context.fillText(message, 4, fontsize);
-  const texture = new THREE.CanvasTexture(canvas);
-  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-  const sprite = new THREE.Sprite(spriteMaterial);
-  sprite.scale.set(0.5 * (canvas.width / canvas.height), 0.5, 1);
-  return sprite;
-};
-
-// --- Funções de Renderização e Setup do Three.js ---
 
 const initThreeJS = () => {
   scene = new THREE.Scene();
