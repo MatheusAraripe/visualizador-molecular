@@ -26,7 +26,6 @@
         background-size: 0.65em auto;
       }
     </style>
-
     <script type="importmap">
       {
         "imports": {
@@ -42,7 +41,7 @@
     >
       <h1 class="text-xl font-bold mb-2">Ciclos de Otimização</h1>
       <p class="text-sm text-gray-400 mb-4">
-        Selecione um ciclo de otimização para visualizar.
+        Selecione uma versão para visualizar.
       </p>
       <div class="relative">
         <select
@@ -52,22 +51,33 @@
           <option>Carregando...</option>
         </select>
       </div>
+      <p class="text-xs text-gray-500 mt-4">
+        Pressione 'A' para medir ângulos.
+      </p>
+    </div>
+
+    <div
+      id="angle-display"
+      class="absolute top-4 right-4 z-10 bg-gray-900 bg-opacity-80 p-4 rounded-lg shadow-lg w-64 text-center hidden"
+    >
+      <h2 class="text-lg font-bold text-white">Medição de Ângulo</h2>
+      <p id="angle-text" class="text-2xl font-mono text-cyan-400 mt-2"></p>
+      <p id="angle-instructions" class="text-sm text-gray-400 mt-1"></p>
     </div>
 
     <div id="container3d"></div>
 
     <script type="module">
-      // PASSO 2: Voltar a usar os nomes curtos (bare specifiers)
       import * as THREE from "three";
       import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-      // --- Variáveis Globais ---
       let scene, camera, renderer, controls, moleculeGroup;
       let allMoleculeVersions = [];
+      let isAngleModeActive = false;
+      let selectedAtomsForAngle = [];
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
 
-      // (O restante do código permanece o mesmo)
-
-      // --- Constantes de Configuração ---
       const atomData = {
         H: { color: 0xffffff, radius: 0.25 },
         C: { color: 0x444444, radius: 0.4 },
@@ -86,6 +96,7 @@
 
       async function main() {
         initThreeJS();
+        setupEventListeners();
         try {
           const fileContent = await loadMoleculeFile("data/data_limpo.txt");
           allMoleculeVersions = parseAllVersions(fileContent);
@@ -120,6 +131,10 @@
       function displayMoleculeVersion(index) {
         if (!allMoleculeVersions[index]) return;
         document.getElementById("version-select").value = index;
+        if (isAngleModeActive)
+          toggleAngleMode(); // Desativa o modo de ângulo ao trocar de molécula
+        else clearAngleSelection();
+
         while (moleculeGroup.children.length > 0) {
           moleculeGroup.remove(moleculeGroup.children[0]);
         }
@@ -150,6 +165,7 @@
       function parseSingleMolecule(blockText) {
         const atoms = [];
         for (const line of blockText.split("\n")) {
+          // CORREÇÃO: A variável 'parts' precisa ser declarada aqui
           const parts = line.trim().split(/\s+/);
           if (parts.length === 4) {
             const symbol = parts[0].toUpperCase();
@@ -160,6 +176,106 @@
           }
         }
         return atoms;
+      }
+
+      function setupEventListeners() {
+        window.addEventListener("keydown", handleKeyDown);
+        renderer.domElement.addEventListener("mousedown", onMouseDown);
+      }
+
+      function toggleAngleMode() {
+        isAngleModeActive = !isAngleModeActive;
+        const angleDisplay = document.getElementById("angle-display");
+        if (isAngleModeActive) {
+          renderer.domElement.style.cursor = "crosshair";
+          controls.enabled = false;
+          angleDisplay.classList.remove("hidden");
+          updateAngleInstructions();
+        } else {
+          renderer.domElement.style.cursor = "grab";
+          controls.enabled = true;
+          angleDisplay.classList.add("hidden");
+          clearAngleSelection();
+        }
+      }
+
+      function handleKeyDown(event) {
+        if (event.key.toLowerCase() === "a") {
+          toggleAngleMode();
+        }
+      }
+
+      function onMouseDown(event) {
+        if (!isAngleModeActive) return;
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(
+          moleculeGroup.children.filter(
+            (c) => c.geometry.type === "SphereGeometry"
+          )
+        );
+        if (intersects.length > 0) {
+          handleAtomSelection(intersects[0].object);
+        }
+      }
+
+      function handleAtomSelection(clickedAtom) {
+        const index = selectedAtomsForAngle.findIndex(
+          (item) => item.atom === clickedAtom
+        );
+        if (index !== -1) {
+          deselectAtom(index);
+        } else if (selectedAtomsForAngle.length < 3) {
+          selectAtom(clickedAtom);
+        }
+        updateAngleInstructions();
+      }
+
+      function selectAtom(atom) {
+        const originalMaterial = atom.material;
+        selectedAtomsForAngle.push({ atom, originalMaterial });
+        const highlightMaterial = originalMaterial.clone();
+        highlightMaterial.emissive.setHex(0x00ff00);
+        atom.material = highlightMaterial;
+        if (selectedAtomsForAngle.length === 3) {
+          calculateAndDisplayAngle();
+        }
+      }
+
+      function deselectAtom(index) {
+        const { atom, originalMaterial } = selectedAtomsForAngle[index];
+        atom.material = originalMaterial;
+        selectedAtomsForAngle.splice(index, 1);
+        document.getElementById("angle-text").innerHTML = "";
+      }
+
+      function clearAngleSelection() {
+        selectedAtomsForAngle.forEach(({ atom, originalMaterial }) => {
+          atom.material = originalMaterial;
+        });
+        selectedAtomsForAngle = [];
+        const angleText = document.getElementById("angle-text");
+        if (angleText) angleText.innerHTML = "";
+      }
+
+      function updateAngleInstructions() {
+        const instructions = document.getElementById("angle-instructions");
+        const count = selectedAtomsForAngle.length;
+        instructions.innerText =
+          count < 3 ? `Selecione ${3 - count} átomo(s).` : `Ângulo calculado.`;
+      }
+
+      function calculateAndDisplayAngle() {
+        const [p1, p2, p3] = selectedAtomsForAngle.map(
+          (item) => item.atom.position
+        );
+        const v1 = new THREE.Vector3().subVectors(p1, p2);
+        const v2 = new THREE.Vector3().subVectors(p3, p2);
+        const angleDeg = THREE.MathUtils.radToDeg(v1.angleTo(v2));
+        document.getElementById("angle-text").innerText = `${angleDeg.toFixed(
+          2
+        )}°`;
       }
 
       function initThreeJS() {
