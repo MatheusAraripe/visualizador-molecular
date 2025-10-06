@@ -263,7 +263,12 @@ const drawBonds = (atoms) => {
         distance > 0.5 &&
         distance < maxBondLength * BOND_DISTANCE_TOLERANCE
       ) {
-        const bondGeometry = new THREE.CylinderGeometry(0.1, 0.1, distance, 16);
+        const bondGeometry = new THREE.CylinderGeometry(
+          0.04,
+          0.04,
+          distance,
+          16
+        );
         const bondMesh = new THREE.Mesh(bondGeometry, bondMaterial);
         const midpoint = new THREE.Vector3()
           .addVectors(atom1.vec, atom2.vec)
