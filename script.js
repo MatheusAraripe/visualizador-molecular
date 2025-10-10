@@ -16,17 +16,17 @@ const mouse = new THREE.Vector2();
 
 // Constantes de configuração
 const atomData = {
-  H: { color: 0xffffff, radius: 0.25 },
-  C: { color: 0x444444, radius: 0.4 },
-  N: { color: 0x0000ff, radius: 0.42 },
-  O: { color: 0xff0000, radius: 0.42 },
-  DEFAULT: { color: 0xcccccc, radius: 0.4 },
+  H: { color: 0xd3dedc, radius: 0.25 }, // Branco suave
+  C: { color: 0x9d9d9d, radius: 0.4 }, // Cinza pastel
+  N: { color: 0x4e709d, radius: 0.42 }, // Azul pastel
+  O: { color: 0xda6c6c, radius: 0.42 }, // Vermelho/coral pastel
+  DEFAULT: { color: "#252525", radius: 0.4 }, // Cinza claro
 };
 const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
 const BOND_DISTANCE_TOLERANCE = 1.2;
 const HIGHLIGHT_COLORS = {
-  end_point: 0x00ff00, // Verde para as pontas
-  vertex: 0xff8c00, // Laranja para o centro (vértice)
+  end_point: 0xace1af, // Verde para as pontas
+  vertex: 0xef9c66, // Laranja para o centro (vértice)
 };
 
 const main = async () => {
@@ -164,7 +164,8 @@ const clearHighlights = () => {
 const applyHighlights = () => {
   selectedAtomsForAngle.forEach(({ atom, originalMaterial }, index) => {
     const highlightMaterial = originalMaterial.clone();
-    highlightMaterial.emissive.setHex(
+    // CORREÇÃO: Alteramos a propriedade .color em vez de .emissive
+    highlightMaterial.color.setHex(
       index === 1 ? HIGHLIGHT_COLORS.vertex : HIGHLIGHT_COLORS.end_point
     );
     atom.material = highlightMaterial;
@@ -205,7 +206,7 @@ const calculateAndDisplayAngle = () => {
 
 const initThreeJS = () => {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x111827);
+  scene.background = new THREE.Color("#fefefe");
   camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
@@ -217,10 +218,9 @@ const initThreeJS = () => {
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   container.appendChild(renderer.domElement);
-  scene.add(new THREE.AmbientLight(0xcccccc, 0.8));
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
-  directionalLight.position.set(1, 1, 0.5).normalize();
-  scene.add(directionalLight);
+
+  // As luzes foram removidas pois não são necessárias com MeshBasicMaterial
+
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   moleculeGroup = new THREE.Group();
@@ -234,10 +234,9 @@ const drawAtoms = (atoms) => {
   atoms.forEach((atom) => {
     const config = atomData[atom.symbol] || atomData.DEFAULT;
     const geometry = new THREE.SphereGeometry(config.radius, 32, 32);
-    const material = new THREE.MeshStandardMaterial({
+    // Usando MeshBasicMaterial para um visual "flat"
+    const material = new THREE.MeshBasicMaterial({
       color: config.color,
-      metalness: 0.2,
-      roughness: 0.5,
     });
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.copy(atom.vec);
@@ -246,10 +245,9 @@ const drawAtoms = (atoms) => {
 };
 
 const drawBonds = (atoms) => {
-  const bondMaterial = new THREE.MeshStandardMaterial({
-    color: 0xaaaaaa,
-    metalness: 0.1,
-    roughness: 0.6,
+  // Usando MeshBasicMaterial e uma cor mais clara para as ligações
+  const bondMaterial = new THREE.MeshBasicMaterial({
+    color: 0xe0e0e0, // Um cinza bem claro
   });
   for (let i = 0; i < atoms.length; i++) {
     for (let j = i + 1; j < atoms.length; j++) {
