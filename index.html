@@ -25,7 +25,6 @@
         background-position: right 0.7rem center;
         background-size: 0.65em auto;
       }
-      /* Estilo para o botão de upload */
       #file-uploader::file-selector-button {
         margin-right: 0.5rem;
         padding: 0.25rem 0.5rem;
@@ -33,11 +32,11 @@
         border: 0;
         font-size: 0.75rem;
         line-height: 1rem;
-        background-color: #4b5563; /* gray-600 */
-        color: #d1d5db; /* gray-300 */
+        background-color: #4b5563;
+        color: #d1d5db;
       }
       #file-uploader::file-selector-button:hover {
-        background-color: #6b7280; /* gray-500 */
+        background-color: #6b7280;
       }
     </style>
     <script type="importmap">
@@ -54,6 +53,13 @@
       class="absolute top-4 left-4 z-10 bg-gray-900 bg-opacity-80 p-4 rounded-lg shadow-lg w-64"
     >
       <h1 class="text-xl font-bold mb-2">Ciclos de Otimização</h1>
+
+      <p
+        id="file-name-display"
+        class="text-sm text-cyan-400 font-mono mb-2 truncate"
+        style="display: none"
+      ></p>
+
       <p class="text-sm text-gray-400 mb-4">
         Selecione um ciclo para visualizar.
       </p>

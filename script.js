@@ -36,16 +36,28 @@ const main = async () => {
     mouse: new THREE.Vector2(),
   });
 
-  // Configura o listener para o upload de arquivos
   setupFileUploadListener();
 
   // Inicia a aplicação com a mensagem para carregar um arquivo
   populateVersionSelector(0, "Carregue um arquivo...");
+  updateFileNameDisplay(null); // Garante que o nome do arquivo esteja oculto no início
 };
 
 /**
- * Configura o listener para o input de arquivo.
+ * Atualiza o elemento de exibição do nome do arquivo.
+ * @param {string | null} fileName - O nome do arquivo a ser exibido, ou null para ocultar.
  */
+const updateFileNameDisplay = (fileName) => {
+  const displayElement = document.getElementById("file-name-display");
+  if (fileName) {
+    displayElement.textContent = fileName;
+    displayElement.style.display = "block"; // Mostra o elemento
+  } else {
+    displayElement.textContent = "";
+    displayElement.style.display = "none"; // Oculta o elemento
+  }
+};
+
 const setupFileUploadListener = () => {
   const uploader = document.getElementById("file-uploader");
   uploader.addEventListener("change", (event) => {
@@ -55,7 +67,7 @@ const setupFileUploadListener = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const fileText = e.target.result;
-      processFileContent(fileText, file.name); // Processa o conteúdo do novo arquivo
+      processFileContent(fileText, file.name);
     };
     reader.readAsText(file);
 
@@ -63,21 +75,18 @@ const setupFileUploadListener = () => {
   });
 };
 
-/**
- * Função central que processa o texto de um arquivo e atualiza a UI.
- * @param {string} fileText - O conteúdo do arquivo.
- * @param {string} sourceName - O nome do arquivo (para exibir no seletor).
- */
 const processFileContent = (fileText, sourceName) => {
   allMoleculeVersions = parseAllVersions(fileText);
 
   if (allMoleculeVersions.length > 0) {
-    populateVersionSelector(allMoleculeVersions.length, sourceName);
+    updateFileNameDisplay(sourceName); // ATUALIZADO: Mostra o nome do arquivo no novo elemento
+    populateVersionSelector(allMoleculeVersions.length); // ATUALIZADO: Não passa mais o nome do arquivo
     displayMoleculeVersion(0);
     console.log(
       `Arquivo "${sourceName}" processado. ${allMoleculeVersions.length} ciclos encontrados.`
     );
   } else {
+    updateFileNameDisplay(null); // ATUALIZADO: Oculta o nome do arquivo se falhar
     console.error(
       "Nenhum ciclo de otimização válido foi encontrado no arquivo:",
       sourceName
@@ -86,27 +95,20 @@ const processFileContent = (fileText, sourceName) => {
   }
 };
 
-/**
- * Preenche o seletor de versões.
- * @param {number} numVersions - O número de ciclos encontrados.
- * @param {string} sourceName - O nome da fonte dos dados (nome do arquivo).
- */
-const populateVersionSelector = (numVersions, sourceName = "") => {
+const populateVersionSelector = (numVersions, defaultMessage = "") => {
   const selector = document.getElementById("version-select");
-  selector.innerHTML = ""; // Limpa
+  selector.innerHTML = "";
 
   if (numVersions === 0) {
-    selector.innerHTML = `<option>${sourceName || "Nenhum ciclo"}</option>`;
+    selector.innerHTML = `<option>${defaultMessage || "Nenhum ciclo"}</option>`;
     return;
   }
 
-  const displayName =
-    sourceName.length > 15 ? sourceName.substring(0, 12) + "..." : sourceName;
-
+  // ATUALIZADO: O texto da opção agora é apenas o número do ciclo
   for (let i = 0; i < numVersions; i++) {
     const option = document.createElement("option");
     option.value = i;
-    option.innerText = `Ciclo ${i + 1} (${displayName})`;
+    option.innerText = `Ciclo ${i + 1}`; // APENAS "Ciclo X"
     selector.appendChild(option);
   }
 
@@ -120,7 +122,6 @@ const populateVersionSelector = (numVersions, sourceName = "") => {
 
 const displayMoleculeVersion = (index) => {
   if (!allMoleculeVersions[index] || allMoleculeVersions[index].length === 0) {
-    // Limpa a cena se não houver átomos para exibir
     while (moleculeGroup.children.length > 0)
       moleculeGroup.remove(moleculeGroup.children[0]);
     console.warn(`Ciclo ${index + 1} não contém átomos válidos.`);
