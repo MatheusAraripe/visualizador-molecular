@@ -26,7 +26,6 @@ const BOND_DISTANCE_TOLERANCE = 1.2;
 const main = async () => {
   initThreeJS();
 
-  // CORREÇÃO: A configuração de eventos agora é feita dentro de initializeMeasurementTools
   measurementTools = initializeMeasurementTools({
     camera,
     renderer,
@@ -37,39 +36,97 @@ const main = async () => {
     mouse: new THREE.Vector2(),
   });
 
-  try {
-    const fileContent = await loadMoleculeFile("data/data_limpo.txt");
-    allMoleculeVersions = parseAllVersions(fileContent);
-    if (allMoleculeVersions.length > 0) {
-      populateVersionSelector(allMoleculeVersions.length);
-      displayMoleculeVersion(0);
-    } else {
-      document.getElementById("version-select").innerHTML =
-        "<option>Nenhum ciclo encontrado.</option>";
-    }
-  } catch (error) {
-    console.error("Erro ao carregar ou processar o arquivo:", error);
-    document.getElementById("version-select").innerHTML =
-      "<option>Falha ao carregar.</option>";
-  }
+  // Configura o listener para o upload de arquivos
+  setupFileUploadListener();
+
+  // Inicia a aplicação com a mensagem para carregar um arquivo
+  populateVersionSelector(0, "Carregue um arquivo...");
 };
 
-const populateVersionSelector = (numVersions) => {
-  const selector = document.getElementById("version-select");
-  selector.innerHTML = "";
-  for (let i = 0; i < numVersions; i++) {
-    const option = document.createElement("option");
-    option.value = i;
-    option.innerText = `Ciclo ${i + 1}`;
-    selector.appendChild(option);
-  }
-  selector.addEventListener("change", (event) => {
-    displayMoleculeVersion(parseInt(event.target.value, 10));
+/**
+ * Configura o listener para o input de arquivo.
+ */
+const setupFileUploadListener = () => {
+  const uploader = document.getElementById("file-uploader");
+  uploader.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const fileText = e.target.result;
+      processFileContent(fileText, file.name); // Processa o conteúdo do novo arquivo
+    };
+    reader.readAsText(file);
+
+    uploader.value = null;
   });
 };
 
+/**
+ * Função central que processa o texto de um arquivo e atualiza a UI.
+ * @param {string} fileText - O conteúdo do arquivo.
+ * @param {string} sourceName - O nome do arquivo (para exibir no seletor).
+ */
+const processFileContent = (fileText, sourceName) => {
+  allMoleculeVersions = parseAllVersions(fileText);
+
+  if (allMoleculeVersions.length > 0) {
+    populateVersionSelector(allMoleculeVersions.length, sourceName);
+    displayMoleculeVersion(0);
+    console.log(
+      `Arquivo "${sourceName}" processado. ${allMoleculeVersions.length} ciclos encontrados.`
+    );
+  } else {
+    console.error(
+      "Nenhum ciclo de otimização válido foi encontrado no arquivo:",
+      sourceName
+    );
+    populateVersionSelector(0, "Arquivo inválido");
+  }
+};
+
+/**
+ * Preenche o seletor de versões.
+ * @param {number} numVersions - O número de ciclos encontrados.
+ * @param {string} sourceName - O nome da fonte dos dados (nome do arquivo).
+ */
+const populateVersionSelector = (numVersions, sourceName = "") => {
+  const selector = document.getElementById("version-select");
+  selector.innerHTML = ""; // Limpa
+
+  if (numVersions === 0) {
+    selector.innerHTML = `<option>${sourceName || "Nenhum ciclo"}</option>`;
+    return;
+  }
+
+  const displayName =
+    sourceName.length > 15 ? sourceName.substring(0, 12) + "..." : sourceName;
+
+  for (let i = 0; i < numVersions; i++) {
+    const option = document.createElement("option");
+    option.value = i;
+    option.innerText = `Ciclo ${i + 1} (${displayName})`;
+    selector.appendChild(option);
+  }
+
+  selector.replaceWith(selector.cloneNode(true));
+  document
+    .getElementById("version-select")
+    .addEventListener("change", (event) => {
+      displayMoleculeVersion(parseInt(event.target.value, 10));
+    });
+};
+
 const displayMoleculeVersion = (index) => {
-  if (!allMoleculeVersions[index]) return;
+  if (!allMoleculeVersions[index] || allMoleculeVersions[index].length === 0) {
+    // Limpa a cena se não houver átomos para exibir
+    while (moleculeGroup.children.length > 0)
+      moleculeGroup.remove(moleculeGroup.children[0]);
+    console.warn(`Ciclo ${index + 1} não contém átomos válidos.`);
+    return;
+  }
+
   document.getElementById("version-select").value = index;
 
   if (measurementTools.resetMeasurementModes) {
@@ -88,6 +145,8 @@ const displayMoleculeVersion = (index) => {
   drawAtoms(centeredAtoms);
   drawBonds(centeredAtoms);
 };
+
+// --- Funções de Renderização (sem alterações) ---
 
 const initThreeJS = () => {
   scene = new THREE.Scene();
