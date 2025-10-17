@@ -26,9 +26,7 @@
         background-size: 0.65em auto;
       }
       #file-uploader::file-selector-button {
-        margin-right: 0.5rem;
         padding: 0.25rem 0.5rem;
-        border-radius: 0.25rem;
         border: 0;
         font-size: 0.75rem;
         line-height: 1rem;
@@ -48,40 +46,53 @@
       }
     </script>
   </head>
-  <body class="bg-gray-800 text-white font-sans">
-    <div
-      class="absolute top-4 left-4 z-10 bg-gray-900 bg-opacity-80 p-4 rounded-lg shadow-lg w-64"
-    >
+  <body class="bg-gray-800 text-neutral-600 font-sans">
+    <div class="absolute top-0 left-0 h-full z-10 bg-[#f5f5f5] p-4 w-64">
       <h1 class="text-xl font-bold mb-2">Ciclos de Otimização</h1>
 
-      <p
-        id="file-name-display"
-        class="text-sm text-cyan-400 font-mono mb-2 truncate"
-        style="display: none"
-      ></p>
-
+      <div></div>
       <p class="text-sm text-gray-400 mb-4">
         Selecione um ciclo para visualizar.
       </p>
       <div class="relative">
         <select
           id="version-select"
-          class="w-full bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full bg-[#f5f5f5] border-[0.5px] border-stone-300 px-3 py-2 rounded-md focus:outline-none"
         >
           <option>Carregando...</option>
         </select>
       </div>
 
-      <div class="mt-4 pt-4 border-t border-gray-700">
-        <label for="file-uploader" class="text-sm text-gray-400 mb-2 block"
-          >Carregar arquivo de output:</label
+      <div class="mt-4 pt-4 border-t h-[78%] w-full border-gray-700">
+        <label
+          for="file-uploader"
+          class="ml-2 font-bold text-sm text-stone-400 mb-2 block"
+          >Arquivo</label
         >
         <input
           type="file"
           id="file-uploader"
           accept=".txt, .log, .out"
-          class="w-full text-xs text-gray-300"
+          class="hidden"
         />
+
+        <label
+          for="file-uploader"
+          id="file-uploader-label"
+          class="w-full flex block py-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm"
+        >
+          <img
+            src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAACXBIWXMAAAsTAAALEwEAmpwYAAAA5ElEQVR4nO2VzcpBURSGH0xcgfTlJwMZKGWkTF2dCzBxB75Ckp/5l3swkomJAY6/fClHu16lE9E5u0hWrfbe72q/T63BWvAGkQPawBbYAE3gx6b5AnA9OQPiNgAtGQ6AJJAG+tLqNgCOzDJXWkra1AbAVd7ST7YBI+DvgR4I4D5x/wL4Aj4csNc9q/NgG9D1TNShDcC/Pke0A4zpWqeZrlHVj34BYxnk79RLQSdrVQYNIOSphYGe6jW/gBgwl8kvUFBbikBHuqN2+Y4ysLyxNk2ugEoQ80sk1AbT6x0w0dtst9fGGSjVji90nTWcAAAAAElFTkSuQmCC"
+            alt="attach"
+          />
+          <p class="text-md">Anexar</p>
+        </label>
+
+        <p
+          id="file-name-display"
+          class="text-sm text-[#ff802d] font-mono mt-2 truncate"
+          style="display: none"
+        ></p>
       </div>
 
       <p class="text-xs text-gray-500 mt-4 pt-4 border-t border-gray-700">
