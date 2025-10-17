@@ -27,10 +27,24 @@ const handleKeyDown = (event) => {
   if (key === "d") toggleDihedralMode();
 };
 
+// Substitua a função onMouseDown existente por esta:
 const onMouseDown = (event) => {
+  // Sai se nenhum modo de medição estiver ativo
   if (!isAngleModeActive && !isDihedralModeActive) return;
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // --- CORREÇÃO INICIA AQUI ---
+  // Pega as dimensões e posição do canvas na tela
+  const rect = renderer.domElement.getBoundingClientRect();
+
+  // Calcula as coordenadas do mouse RELATIVAS ao canvas
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  // Normaliza as coordenadas para o espaço do Three.js [-1, 1]
+  mouse.x = (x / rect.width) * 2 - 1;
+  mouse.y = -(y / rect.height) * 2 + 1;
+  // --- CORREÇÃO TERMINA AQUI ---
+
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(
     moleculeGroup.children.filter((c) => c.geometry.type === "SphereGeometry")

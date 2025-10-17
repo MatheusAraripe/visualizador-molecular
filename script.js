@@ -151,24 +151,41 @@ const displayMoleculeVersion = (index) => {
 
 const initThreeJS = () => {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color("#fefefe");
-  camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
+  scene.background = new THREE.Color("#fefefe"); // Cor de fundo clara
+  camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000); // Aspect Ratio inicial pode ser 1
   camera.position.z = 25;
-  const container = document.getElementById("container3d");
+
+  // IMPORTANTE: Seleciona o novo container pai do canvas
+  const container = document.getElementById("viewer-area"); // Era 'container3d'
+  if (!container) {
+    console.error("Elemento #viewer-area não encontrado!");
+    return;
+  }
+
+  // Cria o elemento canvas dentro do #viewer-area
+  const canvasContainer = document.getElementById("container3d");
+  if (!canvasContainer) {
+    console.error("Elemento #container3d não encontrado!");
+    return;
+  }
+
   renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  container.appendChild(renderer.domElement);
+  // Usa as dimensões do container pai para o tamanho inicial
+  renderer.setSize(container.clientWidth, container.clientHeight);
+
+  // Adiciona o canvas do renderer ao #container3d
+  canvasContainer.appendChild(renderer.domElement);
+
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   moleculeGroup = new THREE.Group();
   angleHelpersGroup = new THREE.Group();
   scene.add(moleculeGroup, angleHelpersGroup);
   window.addEventListener("resize", onWindowResize, false);
+
+  // Chama onWindowResize uma vez para ajustar o aspect ratio inicial corretamente
+  onWindowResize();
+
   animate();
 };
 
@@ -222,9 +239,17 @@ const drawBonds = (atoms) => {
 };
 
 const onWindowResize = () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  // Pega o elemento container do canvas 3D
+  const viewerArea = document.getElementById("viewer-area");
+  if (!viewerArea) return; // Segurança caso o elemento não exista
+
+  // Usa as dimensões do container para calcular o aspect ratio e o tamanho do renderer
+  const width = viewerArea.clientWidth;
+  const height = viewerArea.clientHeight;
+
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height);
 };
 
 const animate = () => {
