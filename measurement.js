@@ -68,7 +68,7 @@ const toggleAngleMode = () => {
     renderer.domElement.style.cursor = "crosshair";
     controls.enabled = false;
     angleDisplay.classList.remove("hidden");
-    angleDisplay.querySelector("h2").innerText = "Medição de Ângulo";
+    angleDisplay.querySelector("h2").innerText = "Ângulo";
     updateAngleInstructions();
   } else {
     renderer.domElement.style.cursor = "grab";
@@ -86,7 +86,7 @@ const toggleDihedralMode = () => {
     renderer.domElement.style.cursor = "crosshair";
     controls.enabled = false;
     angleDisplay.classList.remove("hidden");
-    angleDisplay.querySelector("h2").innerText = "Medição de Diedro";
+    angleDisplay.querySelector("h2").innerText = "Diedro";
     updateDihedralInstructions();
   } else {
     renderer.domElement.style.cursor = "grab";
