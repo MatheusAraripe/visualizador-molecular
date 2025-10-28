@@ -4,12 +4,14 @@ import {
   loadMoleculeFile,
   parseAllVersions,
   calculateCenter,
+  extractCycleEnergies,
 } from "./utils.js";
 import { initializeMeasurementTools } from "./measurement.js";
 
 // Variáveis de estado e da cena
 let scene, camera, renderer, controls, moleculeGroup, angleHelpersGroup;
-let allMoleculeVersions = [];
+let allMoleculeVersions = []; // Armazena APENAS os arrays de átomos
+let cycleEnergies = []; // Array para armazenar apenas as energias
 let measurementTools = {};
 
 // Constantes de configuração
@@ -24,23 +26,63 @@ const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
 const BOND_DISTANCE_TOLERANCE = 1.2;
 
 const main = async () => {
-  initThreeJS();
+  // Tenta inicializar Three.js e verifica o sucesso
+  const threeJsInitialized = initThreeJS();
+  if (!threeJsInitialized) {
+    console.error(
+      "Falha na inicialização do Three.js. A aplicação não pode continuar."
+    );
+    document.body.innerHTML =
+      "<p style='color: red; padding: 20px;'>Erro crítico ao inicializar a visualização 3D.</p>";
+    return; // Interrompe se o Three.js falhar
+  }
 
-  measurementTools = initializeMeasurementTools({
-    camera,
-    renderer,
-    controls,
-    moleculeGroup,
-    angleHelpersGroup,
-    raycaster: new THREE.Raycaster(),
-    mouse: new THREE.Vector2(),
-  });
+  // Tenta pegar os elementos do DOM
+  const logContainer = document.getElementById("measurement-log");
+  const instructions = document.getElementById("measurement-instructions");
 
-  setupFileUploadListener();
+  // Verifica se os elementos do DOM foram encontrados
+  // (Movido para dentro de initializeMeasurementTools)
 
-  // Inicia a aplicação com a mensagem para carregar um arquivo
+  // Verifica se os objetos Three.js essenciais existem ANTES de chamar initializeMeasurementTools
+  if (
+    !camera ||
+    !renderer ||
+    !controls ||
+    !moleculeGroup ||
+    !angleHelpersGroup
+  ) {
+    // Evita erro fatal mostrando msg e parando
+    document.body.innerHTML =
+      "<p style='color: red; padding: 20px;'>Erro crítico na inicialização 3D. Verifique o console.</p>";
+    return;
+  }
+
+  // Inicializa as ferramentas de medição passando TUDO
+  measurementTools = initializeMeasurementTools(
+    {
+      // Objeto com refs do Three.js
+      camera,
+      renderer,
+      controls,
+      moleculeGroup,
+      angleHelpersGroup,
+      raycaster: new THREE.Raycaster(),
+      mouse: new THREE.Vector2(),
+    },
+    {
+      // Objeto com refs do DOM (agora verificado dentro de init)
+      logContainer: logContainer, // Passa mesmo que nulo, init verifica
+      instructions: instructions, // Passa mesmo que nulo, init verifica
+    }
+  );
+
+  setupFileUploadListener(); // Configura o upload
+
+  // Estado inicial da UI
   populateVersionSelector(0, "Carregue um arquivo...");
-  updateFileNameDisplay(null); // Garante que o nome do arquivo esteja oculto no início
+  updateFileNameDisplay(null);
+  updateEnergyDisplay(null); // Chama a função para ocultar/definir estado inicial
 };
 
 /**
@@ -49,6 +91,7 @@ const main = async () => {
  */
 const updateFileNameDisplay = (fileName) => {
   const displayElement = document.getElementById("file-name-display");
+  if (!displayElement) return; // Segurança
   if (fileName) {
     displayElement.textContent = fileName;
     displayElement.style.display = "block"; // Mostra o elemento
@@ -60,136 +103,227 @@ const updateFileNameDisplay = (fileName) => {
 
 const setupFileUploadListener = () => {
   const uploader = document.getElementById("file-uploader");
+  const uploaderLabel = document.getElementById("file-uploader-label"); // Assuming you have this label from previous steps
+  if (!uploader || !uploaderLabel) {
+    console.error("Elementos de upload de arquivo não encontrados.");
+    return;
+  }
+
   uploader.addEventListener("change", (event) => {
     const file = event.target.files[0];
-    // if (!file) return;
+    const spanInsideLabel = uploaderLabel.querySelector("span"); // Assuming span exists
+
+    if (!file) {
+      if (spanInsideLabel) spanInsideLabel.textContent = "Escolher arquivo"; // Volta ao texto original
+      return;
+    }
+
+    if (spanInsideLabel) spanInsideLabel.textContent = file.name; // Mostra nome no span
 
     const reader = new FileReader();
     reader.onload = (e) => {
       const fileText = e.target.result;
       processFileContent(fileText, file.name);
     };
+    reader.onerror = (e) => {
+      // Add error handling
+      console.error("Erro ao ler o arquivo:", e);
+      if (spanInsideLabel) spanInsideLabel.textContent = "Erro ao ler";
+      updateFileNameDisplay(null);
+      populateVersionSelector(0, "Erro no arquivo");
+    };
     reader.readAsText(file);
 
-    uploader.value = null;
+    uploader.value = null; // Limpa para permitir re-upload
   });
 };
 
 const processFileContent = (fileText, sourceName) => {
-  allMoleculeVersions = parseAllVersions(fileText);
+  // Processa átomos e energias separadamente
+  allMoleculeVersions = parseAllVersions(fileText); // Retorna [ [átomosCiclo1], [átomosCiclo2], ... ]
+  cycleEnergies = extractCycleEnergies(fileText); // Retorna [ energiaCiclo1, energiaCiclo2, ... ]
 
+  // Verifica se pelo menos foram encontrados ciclos com átomos
   if (allMoleculeVersions.length > 0) {
-    updateFileNameDisplay(sourceName); // ATUALIZADO: Mostra o nome do arquivo no novo elemento
-    populateVersionSelector(allMoleculeVersions.length); // ATUALIZADO: Não passa mais o nome do arquivo
-    displayMoleculeVersion(0);
-    console.log(
-      `Arquivo "${sourceName}" processado. ${allMoleculeVersions.length} ciclos encontrados.`
-    );
+    updateFileNameDisplay(sourceName);
+    populateVersionSelector(allMoleculeVersions.length); // Popula com base no número de geometrias
+    displayMoleculeVersion(0); // Exibe o primeiro ciclo
   } else {
-    updateFileNameDisplay(null); // ATUALIZADO: Oculta o nome do arquivo se falhar
-    console.error(
-      "Nenhum ciclo de otimização válido foi encontrado no arquivo:",
-      sourceName
-    );
+    updateFileNameDisplay(sourceName + " (Inválido)");
+    console.error("Nenhuma geometria válida encontrada:", sourceName);
     populateVersionSelector(0, "Arquivo inválido");
+    updateEnergyDisplay(null);
+    cycleEnergies = []; // Limpa energias se não houver geometrias
   }
 };
 
 const populateVersionSelector = (numVersions, defaultMessage = "") => {
   const selector = document.getElementById("version-select");
+  if (!selector) return; // Safety check
   selector.innerHTML = "";
 
   if (numVersions === 0) {
     selector.innerHTML = `<option>${defaultMessage || "Nenhum ciclo"}</option>`;
+    selector.disabled = true; // Disable if no options
     return;
   }
 
-  // ATUALIZADO: O texto da opção agora é apenas o número do ciclo
+  selector.disabled = false; // Enable if options exist
   for (let i = 0; i < numVersions; i++) {
     const option = document.createElement("option");
     option.value = i;
-    option.innerText = `Ciclo ${i + 1}`; // APENAS "Ciclo X"
+    option.innerText = `Ciclo ${i + 1}`;
     selector.appendChild(option);
   }
 
-  selector.replaceWith(selector.cloneNode(true));
-  document
-    .getElementById("version-select")
-    .addEventListener("change", (event) => {
-      displayMoleculeVersion(parseInt(event.target.value, 10));
-    });
+  // Clone to remove old listeners and add new one
+  const newSelector = selector.cloneNode(true);
+  selector.parentNode.replaceChild(newSelector, selector);
+  newSelector.addEventListener("change", (event) => {
+    displayMoleculeVersion(parseInt(event.target.value, 10));
+  });
 };
 
+/**
+ * Exibe a molécula e a energia do ciclo selecionado.
+ * @param {number} index - O índice do ciclo a ser exibido.
+ */
 const displayMoleculeVersion = (index) => {
-  if (!allMoleculeVersions[index] || allMoleculeVersions[index].length === 0) {
-    while (moleculeGroup.children.length > 0)
-      moleculeGroup.remove(moleculeGroup.children[0]);
-    console.warn(`Ciclo ${index + 1} não contém átomos válidos.`);
+  if (!moleculeGroup) {
+    console.error("displayMoleculeVersion: moleculeGroup não definido!");
     return;
   }
 
-  document.getElementById("version-select").value = index;
+  // Verifica se o índice é válido e se há dados para ele
+  if (
+    !allMoleculeVersions ||
+    index < 0 ||
+    index >= allMoleculeVersions.length ||
+    !allMoleculeVersions[index]
+  ) {
+    console.warn(`Índice de ciclo inválido ou dados não encontrados: ${index}`);
+    updateEnergyDisplay(cycleEnergies[index] ?? null); // Tenta mostrar energia mesmo assim
+    while (moleculeGroup.children.length > 0)
+      moleculeGroup.remove(moleculeGroup.children[0]);
+    return;
+  }
+
+  // const cycleData = allMoleculeVersions[index]; // Errado - allMoleculeVersions só tem átomos
+  const atoms = allMoleculeVersions[index]; // Correto
+  const energy = cycleEnergies[index] ?? null; // Pega energia do array separado
+
+  // Limpa a cena ANTES de verificar se há átomos
+  while (moleculeGroup.children.length > 0)
+    moleculeGroup.remove(moleculeGroup.children[0]);
+
+  if (!atoms || atoms.length === 0) {
+    console.warn(`Ciclo ${index + 1} não contém átomos válidos.`);
+    updateEnergyDisplay(energy); // Mostra energia mesmo sem átomos
+    return;
+  }
+
+  const selector = document.getElementById("version-select");
+  if (selector) selector.value = index;
 
   if (measurementTools.resetMeasurementModes) {
     measurementTools.resetMeasurementModes();
   }
 
-  while (moleculeGroup.children.length > 0)
-    moleculeGroup.remove(moleculeGroup.children[0]);
-
-  const atoms = allMoleculeVersions[index];
   const center = calculateCenter(atoms);
   const centeredAtoms = atoms.map((atom) => ({
     ...atom,
     vec: new THREE.Vector3().copy(atom.vec).sub(center),
   }));
+
   drawAtoms(centeredAtoms);
   drawBonds(centeredAtoms);
+  updateEnergyDisplay(energy);
 };
 
-// --- Funções de Renderização (sem alterações) ---
+/**
+ * Atualiza a exibição da energia na UI.
+ * @param {number | null} energyValue - O valor da energia ou null para ocultar/indicar N/A.
+ */
+const updateEnergyDisplay = (energyValue) => {
+  const energyContainer = document.getElementById("energy-display-container");
+  const energyValueElement = document.getElementById("energy-value");
+  if (!energyContainer || !energyValueElement) return;
 
+  if (energyValue !== null && !isNaN(energyValue)) {
+    energyValueElement.textContent = energyValue.toFixed(6);
+    energyContainer.style.display = "block";
+  } else {
+    energyValueElement.textContent = "N/A";
+    energyContainer.style.display = "block"; // Mantém visível mesmo com N/A
+  }
+};
+
+// --- Funções de Renderização (initThreeJS com Debugging) ---
 const initThreeJS = () => {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color("#fefefe"); // Cor de fundo clara
-  camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000); // Aspect Ratio inicial pode ser 1
-  camera.position.z = 25;
+  try {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color("#fefefe");
+    camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    camera.position.z = 25;
 
-  // IMPORTANTE: Seleciona o novo container pai do canvas
-  const container = document.getElementById("viewer-area"); // Era 'container3d'
-  if (!container) {
-    console.error("Elemento #viewer-area não encontrado!");
-    return;
+    const container = document.getElementById("viewer-area");
+    if (!container) {
+      console.error(
+        "Falha Crítica em initThreeJS: Elemento #viewer-area não encontrado!"
+      );
+      return false;
+    }
+
+    const canvasContainer = document.getElementById("container3d");
+    if (!canvasContainer) {
+      console.error(
+        "Falha Crítica em initThreeJS: Elemento #container3d não encontrado!"
+      );
+      return false;
+    }
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    if (!renderer) {
+      // Verificação extra
+      console.error("Falha Crítica: THREE.WebGLRenderer falhou ao ser criado.");
+      return false;
+    }
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      console.warn(
+        "Atenção: #viewer-area pode ter dimensões zero no momento da inicialização."
+      );
+    }
+    renderer.setSize(
+      container.clientWidth || 100,
+      container.clientHeight || 100
+    ); // Adiciona fallback
+    canvasContainer.appendChild(renderer.domElement);
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    moleculeGroup = new THREE.Group();
+    angleHelpersGroup = new THREE.Group();
+    scene.add(moleculeGroup, angleHelpersGroup);
+
+    window.addEventListener("resize", onWindowResize, false);
+    onWindowResize(); // Ajusta o tamanho inicial
+    animate();
+
+    return true; // Success
+  } catch (error) {
+    console.error(
+      "Erro INESPERADO durante a inicialização do Three.js:",
+      error
+    ); // Log 17
+    renderer = undefined; // Garante que renderer está undefined em caso de erro
+    return false; // Failure
   }
-
-  // Cria o elemento canvas dentro do #viewer-area
-  const canvasContainer = document.getElementById("container3d");
-  if (!canvasContainer) {
-    console.error("Elemento #container3d não encontrado!");
-    return;
-  }
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
-  // Usa as dimensões do container pai para o tamanho inicial
-  renderer.setSize(container.clientWidth, container.clientHeight);
-
-  // Adiciona o canvas do renderer ao #container3d
-  canvasContainer.appendChild(renderer.domElement);
-
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  moleculeGroup = new THREE.Group();
-  angleHelpersGroup = new THREE.Group();
-  scene.add(moleculeGroup, angleHelpersGroup);
-  window.addEventListener("resize", onWindowResize, false);
-
-  // Chama onWindowResize uma vez para ajustar o aspect ratio inicial corretamente
-  onWindowResize();
-
-  animate();
 };
 
 const drawAtoms = (atoms) => {
+  if (!moleculeGroup) return; // Segurança
+  let count = 0;
   atoms.forEach((atom) => {
     const config = atomData[atom.symbol] || atomData.DEFAULT;
     const geometry = new THREE.SphereGeometry(config.radius, 32, 32);
@@ -197,11 +331,14 @@ const drawAtoms = (atoms) => {
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.copy(atom.vec);
     moleculeGroup.add(sphere);
+    count++;
   });
 };
 
 const drawBonds = (atoms) => {
+  if (!moleculeGroup) return; // Segurança
   const bondMaterial = new THREE.MeshBasicMaterial({ color: 0xe0e0e0 });
+  let bondCount = 0; // Contador de ligações
   for (let i = 0; i < atoms.length; i++) {
     for (let j = i + 1; j < atoms.length; j++) {
       const atom1 = atoms[i];
@@ -233,20 +370,21 @@ const drawBonds = (atoms) => {
           direction
         );
         moleculeGroup.add(bondMesh);
+        bondCount++; // Incrementa
       }
     }
   }
 };
 
 const onWindowResize = () => {
-  // Pega o elemento container do canvas 3D
   const viewerArea = document.getElementById("viewer-area");
-  if (!viewerArea) return; // Segurança caso o elemento não exista
-
-  // Usa as dimensões do container para calcular o aspect ratio e o tamanho do renderer
+  if (!viewerArea || !camera || !renderer) return;
   const width = viewerArea.clientWidth;
   const height = viewerArea.clientHeight;
-
+  if (width === 0 || height === 0) {
+    console.warn("onWindowResize: viewerArea com dimensões zero.");
+    return;
+  }
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height);
@@ -254,8 +392,13 @@ const onWindowResize = () => {
 
 const animate = () => {
   requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
+  if (controls) controls.update();
+  if (renderer && scene && camera) {
+    renderer.render(scene, camera);
+  } else {
+    // console.warn("Renderização pulada: objeto essencial faltando."); // Evita poluir console
+  }
 };
 
-main();
+// Garante que o DOM está completamente carregado antes de executar o script principal
+document.addEventListener("DOMContentLoaded", main);

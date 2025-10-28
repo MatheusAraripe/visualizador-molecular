@@ -52,6 +52,15 @@
         </select>
       </div>
 
+      <div
+        id="energy-display-container"
+        class="mb-4 pl-1"
+        style="display: none"
+      >
+        <p class="text-xs text-gray-500 font-semibold">Energia Total (Eh):</p>
+        <p id="energy-value" class="text-md font-mono text-gray-700"></p>
+      </div>
+
       <div class="mt-4 pt-4 border-t border-gray-300">
         <p class="text-sm font-bold text-stone-400 mb-2 block">Arquivo</p>
         <input
@@ -81,11 +90,11 @@
           </svg>
           <span class="truncate font-semibold text-stone-500">Anexar</span>
         </label>
-        <p
+        <!-- <p
           id="file-name-display"
           class="text-sm text-[#ff802d] font-mono mb-2 truncate mt-3"
           style="display: none"
-        ></p>
+        ></p> -->
       </div>
 
       <div class="mt-auto pt-4 border-t border-gray-300 text-xs text-gray-500">
