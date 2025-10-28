@@ -1,12 +1,14 @@
 import * as THREE from "three";
 
-// Variáveis de estado escopadas para este módulo
+// Estado
 let isAngleModeActive = false;
 let selectedAtomsForAngle = [];
 let isDihedralModeActive = false;
 let selectedAtomsForDihedral = [];
+let isDistanceModeActive = false;
+let selectedAtomsForDistance = [];
 
-// Objetos Three.js compartilhados (serão preenchidos pelo inicializador)
+// Objetos Three.js
 let camera,
   renderer,
   controls,
@@ -15,64 +17,64 @@ let camera,
   raycaster,
   mouse;
 
-const HIGHLIGHT_COLORS = {
-  end_point: 0xace1af, // Verde pastel
-  vertex: 0xef9c66, // Laranja pastel
-};
+// Elementos do DOM
+let logContainerElement, instructionsElement;
+
+const HIGHLIGHT_COLORS = { end_point: 0xace1af, vertex: 0xef9c66 };
+const LOCAL_STORAGE_KEY = "moleculeViewerMeasurements";
+const MAX_LOG_ENTRIES = 15;
 
 // --- Manipuladores de Eventos ---
 const handleKeyDown = (event) => {
   const key = event.key.toLowerCase();
   if (key === "a") toggleAngleMode();
   if (key === "d") toggleDihedralMode();
+  if (key === "s") toggleDistanceMode();
 };
 
-// Substitua a função onMouseDown existente por esta:
 const onMouseDown = (event) => {
-  // Sai se nenhum modo de medição estiver ativo
-  if (!isAngleModeActive && !isDihedralModeActive) return;
-
-  // --- CORREÇÃO INICIA AQUI ---
-  // Pega as dimensões e posição do canvas na tela
+  if (
+    (!isAngleModeActive && !isDihedralModeActive && !isDistanceModeActive) ||
+    !moleculeGroup
+  )
+    return;
   const rect = renderer.domElement.getBoundingClientRect();
-
-  // Calcula as coordenadas do mouse RELATIVAS ao canvas
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-
-  // Normaliza as coordenadas para o espaço do Three.js [-1, 1]
   mouse.x = (x / rect.width) * 2 - 1;
   mouse.y = -(y / rect.height) * 2 + 1;
-  // --- CORREÇÃO TERMINA AQUI ---
-
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(
-    moleculeGroup.children.filter((c) => c.geometry.type === "SphereGeometry")
+    moleculeGroup.children.filter((c) => c.geometry?.type === "SphereGeometry")
   );
-
   if (intersects.length > 0) {
     if (isAngleModeActive) {
       handleAngleAtomSelection(intersects[0].object);
     } else if (isDihedralModeActive) {
       handleDihedralAtomSelection(intersects[0].object);
+    } else if (isDistanceModeActive) {
+      handleDistanceAtomSelection(intersects[0].object);
     }
   }
 };
 
-// --- Ativação de Modos ---
+// --- Ativação/Desativação de Modos ---
 const toggleAngleMode = () => {
   if (isDihedralModeActive) toggleDihedralMode();
+  if (isDistanceModeActive) toggleDistanceMode();
   isAngleModeActive = !isAngleModeActive;
   const angleDisplay = document.getElementById("angle-display");
+  if (!angleDisplay) return;
   if (isAngleModeActive) {
-    renderer.domElement.style.cursor = "crosshair";
-    controls.enabled = false;
+    if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
+    if (controls) controls.enabled = false;
     angleDisplay.classList.remove("hidden");
-    angleDisplay.querySelector("h2").innerText = "Ângulo";
+    const titleElement = angleDisplay.querySelector("#measurement-title");
+    if (titleElement) titleElement.innerText = "Ângulo";
     updateAngleInstructions();
   } else {
-    renderer.domElement.style.cursor = "grab";
-    controls.enabled = true;
+    if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
+    if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearAngleSelection();
   }
@@ -80,25 +82,50 @@ const toggleAngleMode = () => {
 
 const toggleDihedralMode = () => {
   if (isAngleModeActive) toggleAngleMode();
+  if (isDistanceModeActive) toggleDistanceMode();
   isDihedralModeActive = !isDihedralModeActive;
   const angleDisplay = document.getElementById("angle-display");
+  if (!angleDisplay) return;
   if (isDihedralModeActive) {
-    renderer.domElement.style.cursor = "crosshair";
-    controls.enabled = false;
+    if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
+    if (controls) controls.enabled = false;
     angleDisplay.classList.remove("hidden");
-    angleDisplay.querySelector("h2").innerText = "Diedro";
+    const titleElement = angleDisplay.querySelector("#measurement-title");
+    if (titleElement) titleElement.innerText = "Diedro";
     updateDihedralInstructions();
   } else {
-    renderer.domElement.style.cursor = "grab";
-    controls.enabled = true;
+    if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
+    if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearDihedralSelection();
   }
 };
 
-export const resetMeasurementModes = () => {
+const toggleDistanceMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
+  isDistanceModeActive = !isDistanceModeActive;
+  const angleDisplay = document.getElementById("angle-display");
+  if (!angleDisplay) return;
+  if (isDistanceModeActive) {
+    if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
+    if (controls) controls.enabled = false;
+    angleDisplay.classList.remove("hidden");
+    const titleElement = angleDisplay.querySelector("#measurement-title");
+    if (titleElement) titleElement.innerText = "Distância";
+    updateDistanceInstructions();
+  } else {
+    if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
+    if (controls) controls.enabled = true;
+    angleDisplay.classList.add("hidden");
+    clearDistanceSelection();
+  }
+};
+
+const resetMeasurementModes = () => {
+  if (isAngleModeActive) toggleAngleMode();
+  if (isDihedralModeActive) toggleDihedralMode();
+  if (isDistanceModeActive) toggleDistanceMode();
 };
 
 // --- Lógica de Ângulo Convencional ---
@@ -130,11 +157,12 @@ const clearAngleSelection = () => {
 };
 const clearAngleHighlights = () => {
   selectedAtomsForAngle.forEach(({ atom, originalMaterial }) => {
-    atom.material = originalMaterial;
+    if (atom) atom.material = originalMaterial;
   });
 };
 const applyAngleHighlights = () => {
   selectedAtomsForAngle.forEach(({ atom, originalMaterial }, index) => {
+    if (!atom || !originalMaterial) return;
     const highlightMaterial = originalMaterial.clone();
     highlightMaterial.color.setHex(
       index === 1 ? HIGHLIGHT_COLORS.vertex : HIGHLIGHT_COLORS.end_point
@@ -151,13 +179,17 @@ const updateAngleInstructions = () => {
 };
 const calculateAndDisplayAngle = () => {
   clearAngleHelpers();
-  const [atomA, atomB, atomC] = selectedAtomsForAngle.map(
-    (item) => item.atom.position
-  );
+  if (selectedAtomsForAngle.length < 3) return;
+  const atoms = selectedAtomsForAngle
+    .map((item) => item.atom?.position)
+    .filter(Boolean);
+  if (atoms.length < 3) return;
+  const [atomA, atomB, atomC] = atoms;
   const v1 = new THREE.Vector3().subVectors(atomA, atomB);
   const v2 = new THREE.Vector3().subVectors(atomC, atomB);
   const angleDeg = THREE.MathUtils.radToDeg(v1.angleTo(v2));
-  document.getElementById("angle-text").innerText = `${angleDeg.toFixed(2)}°`;
+  const angleText = document.getElementById("angle-text");
+  if (angleText) angleText.innerText = `${angleDeg.toFixed(2)}°`;
 };
 
 // --- Lógica de Ângulo de Diedro ---
@@ -190,11 +222,12 @@ const clearDihedralSelection = () => {
 };
 const clearDihedralHighlights = () => {
   selectedAtomsForDihedral.forEach(({ atom, originalMaterial }) => {
-    atom.material = originalMaterial;
+    if (atom) atom.material = originalMaterial;
   });
 };
 const applyDihedralHighlights = () => {
   selectedAtomsForDihedral.forEach(({ atom, originalMaterial }, index) => {
+    if (!atom || !originalMaterial) return;
     const highlightMaterial = originalMaterial.clone();
     highlightMaterial.color.setHex(
       index === 1 || index === 2
@@ -213,9 +246,12 @@ const updateDihedralInstructions = () => {
 };
 const calculateAndDisplayDihedral = () => {
   clearAngleHelpers();
-  const [p1, p2, p3, p4] = selectedAtomsForDihedral.map(
-    (item) => item.atom.position
-  );
+  if (selectedAtomsForDihedral.length < 4) return;
+  const atoms = selectedAtomsForDihedral
+    .map((item) => item.atom?.position)
+    .filter(Boolean);
+  if (atoms.length < 4) return;
+  const [p1, p2, p3, p4] = atoms;
   const v1 = new THREE.Vector3().subVectors(p2, p1);
   const v2 = new THREE.Vector3().subVectors(p3, p2);
   const v3 = new THREE.Vector3().subVectors(p4, p3);
@@ -226,17 +262,76 @@ const calculateAndDisplayDihedral = () => {
     angleRad = -angleRad;
   }
   const angleDeg = THREE.MathUtils.radToDeg(angleRad);
-  document.getElementById("angle-text").innerText = `${angleDeg.toFixed(2)}°`;
+  const angleText = document.getElementById("angle-text");
+  if (angleText) angleText.innerText = `${angleDeg.toFixed(2)}°`;
+};
+
+// --- Lógica de Distância ---
+const handleDistanceAtomSelection = (clickedAtom) => {
+  const index = selectedAtomsForDistance.findIndex(
+    (item) => item.atom === clickedAtom
+  );
+  if (index !== -1) deselectAtomForDistance(index);
+  else if (selectedAtomsForDistance.length < 2)
+    selectAtomForDistance(clickedAtom);
+};
+const selectAtomForDistance = (atom) => {
+  const originalMaterial = atom.material;
+  selectedAtomsForDistance.push({ atom, originalMaterial });
+  applyDistanceHighlights();
+  updateDistanceInstructions();
+  if (selectedAtomsForDistance.length === 2) calculateAndDisplayDistance();
+};
+const deselectAtomForDistance = (index) => {
+  clearDistanceHighlights();
+  selectedAtomsForDistance.splice(index, 1);
+  applyDistanceHighlights();
+  clearAngleHelpers();
+  updateDistanceInstructions();
+};
+const clearDistanceSelection = () => {
+  clearDistanceHighlights();
+  selectedAtomsForDistance = [];
+  clearAngleHelpers();
+};
+const clearDistanceHighlights = () => {
+  selectedAtomsForDistance.forEach(({ atom, originalMaterial }) => {
+    if (atom) atom.material = originalMaterial;
+  });
+};
+const applyDistanceHighlights = () => {
+  selectedAtomsForDistance.forEach(({ atom, originalMaterial }) => {
+    if (!atom || !originalMaterial) return;
+    const highlightMaterial = originalMaterial.clone();
+    highlightMaterial.color.setHex(HIGHLIGHT_COLORS.end_point);
+    atom.material = highlightMaterial;
+  });
+};
+const updateDistanceInstructions = () => {
+  const instructions = document.getElementById("angle-instructions");
+  if (!instructions) return;
+  const count = selectedAtomsForDistance.length;
+  instructions.innerText =
+    count < 2 ? `Selecione ${2 - count} átomo(s).` : `Distância calculada.`;
+};
+const calculateAndDisplayDistance = () => {
+  clearAngleHelpers();
+  if (selectedAtomsForDistance.length < 2) return;
+  const atomsPos = selectedAtomsForDistance
+    .map((item) => item.atom?.position)
+    .filter(Boolean);
+  if (atomsPos.length < 2) return;
+  const [posA, posB] = atomsPos;
+  const distance = posA.distanceTo(posB);
+  const angleText = document.getElementById("angle-text");
+  if (angleText) angleText.innerText = `${distance.toFixed(3)} Å`;
 };
 
 // --- Função Comum ---
 const clearAngleHelpers = () => {
-  if (angleHelpersGroup) {
-    while (angleHelpersGroup.children.length > 0)
-      angleHelpersGroup.remove(angleHelpersGroup.children[0]);
-  }
   const angleText = document.getElementById("angle-text");
   if (angleText) angleText.innerText = "";
+  // Não mexe mais no angleHelpersGroup por enquanto
 };
 
 // --- Função Principal de Exportação ---
@@ -249,7 +344,7 @@ export const initializeMeasurementTools = (three_objects) => {
   raycaster = three_objects.raycaster;
   mouse = three_objects.mouse;
 
-  // Configura os eventos DENTRO do módulo
+  // Configura os eventos
   window.addEventListener("keydown", handleKeyDown);
   renderer.domElement.addEventListener("mousedown", onMouseDown);
 
