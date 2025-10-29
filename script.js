@@ -25,6 +25,48 @@ const atomData = {
 const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
 const BOND_DISTANCE_TOLERANCE = 1.2;
 
+/**
+ * Configura os listeners para os tooltips que seguem o cursor.
+ */
+const setupTooltipListeners = () => {
+  const tooltipElement = document.getElementById("cursor-tooltip");
+  if (!tooltipElement) return; // Sai se o elemento tooltip não existir
+
+  // Seleciona todos os labels que devem ter um tooltip
+  const elementsWithTooltip = document.querySelectorAll("[data-tooltip-text]");
+
+  elementsWithTooltip.forEach((element) => {
+    let isHovering = false; // Flag para controlar se o mouse está sobre o elemento
+
+    element.addEventListener("mouseenter", (event) => {
+      isHovering = true;
+      const tooltipText = element.getAttribute("data-tooltip-text");
+      if (tooltipText) {
+        tooltipElement.textContent = tooltipText;
+        // Posiciona inicialmente antes de mostrar
+        tooltipElement.style.left = `${event.clientX + 15}px`;
+        tooltipElement.style.top = `${event.clientY + 15}px`;
+        tooltipElement.classList.remove("hidden");
+        tooltipElement.style.opacity = "1"; // Garante visibilidade
+      }
+    });
+
+    element.addEventListener("mousemove", (event) => {
+      if (isHovering) {
+        // Atualiza a posição enquanto o mouse se move sobre o elemento
+        tooltipElement.style.left = `${event.clientX + 15}px`; // Pequeno offset à direita
+        tooltipElement.style.top = `${event.clientY + 15}px`; // Pequeno offset abaixo
+      }
+    });
+
+    element.addEventListener("mouseleave", () => {
+      isHovering = false;
+      tooltipElement.classList.add("hidden");
+      tooltipElement.style.opacity = "0";
+    });
+  });
+};
+
 const main = async () => {
   // Tenta inicializar Three.js e verifica o sucesso
   const threeJsInitialized = initThreeJS();
@@ -76,6 +118,8 @@ const main = async () => {
       instructions: instructions, // Passa mesmo que nulo, init verifica
     }
   );
+
+  setupTooltipListeners(); // exibe tooltip
 
   setupFileUploadListener(); // Configura o upload
 

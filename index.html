@@ -25,6 +25,9 @@
         border-radius: 0.75rem; /* Equivalente a rounded-xl */
         overflow: hidden; /* Garante que o canvas não "vaze" pelos cantos arredondados */
       }
+      #cursor-tooltip {
+        transition: opacity 0.1s ease-out; /* Suaviza o aparecimento/desaparecimento */
+      }
     </style>
     <script type="importmap">
       {
@@ -72,7 +75,7 @@
         <label
           for="file-uploader"
           id="file-uploader-label"
-          class="w-full flex items-center py-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -96,11 +99,55 @@
           style="display: none"
         ></p> -->
       </div>
+      <!-- TOOLS -->
+      <div class="mt-4 pt-4">
+        <p class="text-sm font-bold text-stone-400 mb-2 block">Ferramentas</p>
+        <!-- ângulo -->
+        <label
+          id="angulo"
+          data-tooltip-text="A"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
+        >
+          <img
+            src="./assets/icons/icons8-ângulo.png"
+            alt="ângulo"
+            class="mr-2"
+          />
+          <span class="truncate font-semibold text-stone-500">Ângulo</span>
+        </label>
+        <!-- diedro -->
+        <label
+          id="diedro"
+          data-tooltip-text="D"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
+        >
+          <img
+            src="./assets/icons/icons8-diedro.png"
+            alt="ângulo"
+            class="mr-2"
+          />
+          <span class="truncate font-semibold text-stone-500">Diedro</span>
+        </label>
 
-      <div class="mt-auto pt-4 border-t border-gray-300 text-xs text-gray-500">
-        Pressione 'A' para medir ângulos.<br />
-        Pressione 'D' para medir diedros.<br />
-        Pressione 'S' para medir distâncias.
+        <!-- distância -->
+        <label
+          id="distancia"
+          data-tooltip-text="S"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
+        >
+          <img
+            src="./assets/icons/icons8-régua-20.png"
+            alt="ângulo"
+            class="mr-2"
+          />
+          <span class="truncate font-semibold text-stone-500">Distância</span>
+        </label>
+
+        <span
+          id="cursor-tooltip"
+          class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
+        >
+        </span>
       </div>
     </aside>
 
