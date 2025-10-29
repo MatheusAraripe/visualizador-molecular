@@ -63,8 +63,11 @@ const toggleAngleMode = () => {
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
   isAngleModeActive = !isAngleModeActive;
+
   const angleDisplay = document.getElementById("angle-display");
-  if (!angleDisplay) return;
+  const btn = document.getElementById("angulo"); // Pega o botão
+  if (!angleDisplay || !btn) return;
+
   if (isAngleModeActive) {
     if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
     if (controls) controls.enabled = false;
@@ -72,11 +75,13 @@ const toggleAngleMode = () => {
     const titleElement = angleDisplay.querySelector("#measurement-title");
     if (titleElement) titleElement.innerText = "Ângulo";
     updateAngleInstructions();
+    btn.classList.add("tool-active"); // <<< ADICIONADO
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearAngleSelection();
+    btn.classList.remove("tool-active"); // <<< ADICIONADO
   }
 };
 
@@ -84,8 +89,11 @@ const toggleDihedralMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDistanceModeActive) toggleDistanceMode();
   isDihedralModeActive = !isDihedralModeActive;
+
   const angleDisplay = document.getElementById("angle-display");
-  if (!angleDisplay) return;
+  const btn = document.getElementById("diedro"); // Pega o botão
+  if (!angleDisplay || !btn) return;
+
   if (isDihedralModeActive) {
     if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
     if (controls) controls.enabled = false;
@@ -93,11 +101,13 @@ const toggleDihedralMode = () => {
     const titleElement = angleDisplay.querySelector("#measurement-title");
     if (titleElement) titleElement.innerText = "Diedro";
     updateDihedralInstructions();
+    btn.classList.add("tool-active"); // <<< ADICIONADO
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearDihedralSelection();
+    btn.classList.remove("tool-active"); // <<< ADICIONADO
   }
 };
 
@@ -105,8 +115,11 @@ const toggleDistanceMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
   isDistanceModeActive = !isDistanceModeActive;
+
   const angleDisplay = document.getElementById("angle-display");
-  if (!angleDisplay) return;
+  const btn = document.getElementById("distancia"); // Pega o botão
+  if (!angleDisplay || !btn) return;
+
   if (isDistanceModeActive) {
     if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
     if (controls) controls.enabled = false;
@@ -114,11 +127,13 @@ const toggleDistanceMode = () => {
     const titleElement = angleDisplay.querySelector("#measurement-title");
     if (titleElement) titleElement.innerText = "Distância";
     updateDistanceInstructions();
+    btn.classList.add("tool-active"); // <<< ADICIONADO
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearDistanceSelection();
+    btn.classList.remove("tool-active"); // <<< ADICIONADO
   }
 };
 
@@ -331,7 +346,6 @@ const calculateAndDisplayDistance = () => {
 const clearAngleHelpers = () => {
   const angleText = document.getElementById("angle-text");
   if (angleText) angleText.innerText = "";
-  // Não mexe mais no angleHelpersGroup por enquanto
 };
 
 // --- Função Principal de Exportação ---
@@ -344,9 +358,18 @@ export const initializeMeasurementTools = (three_objects) => {
   raycaster = three_objects.raycaster;
   mouse = three_objects.mouse;
 
-  // Configura os eventos
+  // Configura os eventos de teclado e mouse
   window.addEventListener("keydown", handleKeyDown);
   renderer.domElement.addEventListener("mousedown", onMouseDown);
+
+  // Adiciona listeners de clique aos botões da sidebar
+  document.getElementById("angulo")?.addEventListener("click", toggleAngleMode);
+  document
+    .getElementById("diedro")
+    ?.addEventListener("click", toggleDihedralMode);
+  document
+    .getElementById("distancia")
+    ?.addEventListener("click", toggleDistanceMode);
 
   return { resetMeasurementModes };
 };
