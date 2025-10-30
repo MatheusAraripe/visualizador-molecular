@@ -16,10 +16,10 @@ let measurementTools = {};
 
 // Constantes de configuração
 const atomData = {
-  H: { color: 0xffffff, radius: 0.25 },
-  C: { color: 0xd0ddd0, radius: 0.4 },
-  N: { color: 0x58a0c8, radius: 0.42 },
-  O: { color: 0xdc3c22, radius: 0.42 },
+  H: { color: 0xd3dedc, radius: 0.25 },
+  C: { color: 0x9d9d9d, radius: 0.4 },
+  N: { color: 0x4e709d, radius: 0.42 },
+  O: { color: 0xda6c6c, radius: 0.42 },
   DEFAULT: { color: 0x252525, radius: 0.4 },
 };
 const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
@@ -303,83 +303,86 @@ const updateEnergyDisplay = (energyValue) => {
 };
 
 // --- Funções de Renderização (initThreeJS com Debugging) ---
-// Substitua APENAS a função initThreeJS
 const initThreeJS = () => {
   try {
     scene = new THREE.Scene();
-    const viewerArea = document.getElementById("viewer-area");
-    const canvasContainer = document.getElementById("container3d");
-    if (!viewerArea || !canvasContainer) {
-      console.error("Elementos #viewer-area ou #container3d não encontrados!");
-      return false;
-    }
-    const initialWidth = viewerArea.clientWidth || 100;
-    const initialHeight = viewerArea.clientHeight || 100;
-
-    camera = new THREE.PerspectiveCamera(
-      75,
-      initialWidth / initialHeight,
-      0.1,
-      1000
-    );
+    scene.background = new THREE.Color("#fefefe");
+    camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
     camera.position.z = 25;
 
-    renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true, // <<< ESSENCIAL: Permite transparência no canvas
-    });
-    renderer.setSize(initialWidth, initialHeight);
+    const container = document.getElementById("viewer-area");
+    if (!container) {
+      console.error(
+        "Falha Crítica em initThreeJS: Elemento #viewer-area não encontrado!"
+      );
+      return false;
+    }
 
-    renderer.setClearColor(0x000000, 0);
+    const canvasContainer = document.getElementById("container3d");
+    if (!canvasContainer) {
+      console.error(
+        "Falha Crítica em initThreeJS: Elemento #container3d não encontrado!"
+      );
+      return false;
+    }
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    if (!renderer) {
+      // Verificação extra
+      console.error("Falha Crítica: THREE.WebGLRenderer falhou ao ser criado.");
+      return false;
+    }
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      console.warn(
+        "Atenção: #viewer-area pode ter dimensões zero no momento da inicialização."
+      );
+    }
+    renderer.setSize(
+      container.clientWidth || 100,
+      container.clientHeight || 100
+    ); // Adiciona fallback
     canvasContainer.appendChild(renderer.domElement);
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-
-    // Readiciona Luzes (necessárias para MeshStandardMaterial)
-    const ambientLight = new THREE.AmbientLight(0xcccccc, 0.6);
-    scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(1, 1, 0.5).normalize();
-    scene.add(directionalLight);
 
     moleculeGroup = new THREE.Group();
     angleHelpersGroup = new THREE.Group();
     scene.add(moleculeGroup, angleHelpersGroup);
 
     window.addEventListener("resize", onWindowResize, false);
-    setTimeout(onWindowResize, 50);
+    onWindowResize(); // Ajusta o tamanho inicial
     animate();
 
     return true; // Success
   } catch (error) {
-    console.error("Erro durante a inicialização do Three.js:", error);
+    console.error(
+      "Erro INESPERADO durante a inicialização do Three.js:",
+      error
+    ); // Log 17
+    renderer = undefined; // Garante que renderer está undefined em caso de erro
     return false; // Failure
   }
 };
+
 const drawAtoms = (atoms) => {
-  if (!moleculeGroup) return;
+  if (!moleculeGroup) return; // Segurança
+  let count = 0;
   atoms.forEach((atom) => {
     const config = atomData[atom.symbol] || atomData.DEFAULT;
     const geometry = new THREE.SphereGeometry(config.radius, 32, 32);
-    const material = new THREE.MeshStandardMaterial({
-      color: config.color,
-      metalness: 0.1, // Pouco metálico (0 a 1)
-      roughness: 1, // Um pouco áspero (0 a 1)
-    });
+    const material = new THREE.MeshBasicMaterial({ color: config.color });
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.copy(atom.vec);
     moleculeGroup.add(sphere);
+    count++;
   });
 };
 
 const drawBonds = (atoms) => {
-  if (!moleculeGroup) return;
-  const bondMaterial = new THREE.MeshStandardMaterial({
-    color: 0x888888, // Cinza médio (fica melhor com luz)
-    metalness: 0.2,
-    roughness: 0.7,
-  });
+  if (!moleculeGroup) return; // Segurança
+  const bondMaterial = new THREE.MeshBasicMaterial({ color: 0xe0e0e0 });
+  let bondCount = 0; // Contador de ligações
   for (let i = 0; i < atoms.length; i++) {
     for (let j = i + 1; j < atoms.length; j++) {
       const atom1 = atoms[i];
@@ -411,6 +414,7 @@ const drawBonds = (atoms) => {
           direction
         );
         moleculeGroup.add(bondMesh);
+        bondCount++; // Incrementa
       }
     }
   }

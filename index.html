@@ -5,14 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>V.M.A</title>
     <link rel="icon" type="image/png" href="./assets/favicon-molecule-32.png" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap"
-      rel="stylesheet"
-    />
 
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
       html,
       body {
@@ -29,50 +23,15 @@
         left: 1rem;
         right: 1rem;
         bottom: 1rem;
+        box-shadow: rgba(0, 0, 0, 0.16) 0px 1px 4px;
+        border-radius: 0.75rem; /* Equivalente a rounded-xl */
         overflow: hidden; /* Garante que o canvas não "vaze" pelos cantos arredondados */
       }
       #cursor-tooltip {
         transition: opacity 0.1s ease-out; /* Suaviza o aparecimento/desaparecimento */
       }
       label.tool-active {
-        background-color: oklch(21% 0.006 285.885);
-      }
-      #viewer-area {
-        /* Cor de fundo escura */
-        background-color: #000000;
-
-        /* Tamanhos para o grid retangular */
-        --grid-width: 80px; /* Ajuste a largura do retângulo */
-        --grid-height: 30px; /* Ajuste a altura do retângulo */
-        /* Cor e espessura da linha do grid */
-        --grid-line-color: rgba(255, 255, 255, 0.068);
-        --grid-line-thickness: 1px;
-
-        /* Cria as linhas (usa as variáveis corretas agora) */
-        background-image: repeating-linear-gradient(
-            to right,
-            var(--grid-line-color) 0,
-            var(--grid-line-color) var(--grid-line-thickness),
-            transparent var(--grid-line-thickness),
-            transparent var(--grid-width)
-          ),
-          /* Usa --grid-width */
-            repeating-linear-gradient(
-              to bottom,
-              var(--grid-line-color) 0,
-              var(--grid-line-color) var(--grid-line-thickness),
-              transparent var(--grid-line-thickness),
-              transparent var(--grid-height)
-            ); /* Usa --grid-height */
-
-        /* Define o tamanho retangular de cada célula */
-        background-size: var(--grid-width) var(--grid-height); /* RETANGULAR */
-      }
-      aside {
-        border-right: 0.1px solid rgba(255, 255, 255, 0.24);
-      }
-      .font-mono {
-        font-family: "Roboto Mono", monospace;
+        background-color: #e5e7eb; /* Cor gray-200 do Tailwind */
       }
     </style>
     <script type="importmap">
@@ -85,15 +44,17 @@
     </script>
   </head>
 
-  <body class="flex text-white font-mono">
-    <aside class="w-64 h-screen bg-black p-4 flex flex-col flex-shrink-0 z-10">
-      <h1 class="text-xl font-bold mb-2">Ciclos de Otimização</h1>
-      <p class="text-sm text-gray-300 mb-4">Selecione um ciclo:</p>
+  <body class="flex text-gray-700 bg-[#f5f5f5]">
+    <aside
+      class="w-64 h-screen bg-[#f5f5f5] p-4 flex flex-col flex-shrink-0 z-10"
+    >
+      <h1 class="text-xl font-bold mb-2 text-gray-800">Ciclos de Otimização</h1>
+      <p class="text-sm text-gray-500 mb-4">Selecione um ciclo:</p>
 
       <div class="relative mb-4">
         <select
           id="version-select"
-          class="w-full bg-black border-[0.5px] border-[#ffffff3d] px-3 py-2 rounded-sm focus:outline-none"
+          class="w-full bg-[#f5f5f5] border border-stone-300 px-3 py-2 rounded-md focus:outline-none"
         >
           <option>Carregue um arquivo...</option>
         </select>
@@ -104,12 +65,15 @@
         class="mb-4 pl-1"
         style="display: none"
       >
-        <p class="text-xs text-gray-300 font-semibold">Energia Total (Eh):</p>
-        <p id="energy-value" class="text-md font-mono text-[#ff802d]"></p>
+        <p class="text-xs text-gray-500 font-semibold">Energia Total (Eh):</p>
+        <p
+          id="energy-value"
+          class="text-md font-bold font-mono text-gray-700"
+        ></p>
       </div>
 
       <div class="mt-4 pt-4 border-t border-gray-300">
-        <p class="text-sm font-bold text-gray-300 mb-2 block">Arquivo</p>
+        <p class="text-sm font-bold text-stone-400 mb-2 block">Arquivo</p>
         <input
           type="file"
           id="file-uploader"
@@ -119,7 +83,7 @@
         <label
           for="file-uploader"
           id="file-uploader-label"
-          class="w-full flex items-center p-2 rounded-sm cursor-pointer transition-colors truncate hover:bg-zinc-800 text-gray-300 text-sm"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -135,62 +99,62 @@
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <span class="truncate font-semibold text-white">Anexar</span>
+          <span class="truncate font-semibold text-stone-500">Anexar</span>
         </label>
       </div>
       <!-- TOOLS -->
       <div class="mt-4 pt-4">
-        <p class="text-sm font-bold text-gray-300 mb-2 block">Ferramentas</p>
+        <p class="text-sm font-bold text-stone-400 mb-2 block">Ferramentas</p>
         <!-- ângulo -->
         <label
           id="angulo"
           data-tooltip-text="A"
-          class="w-full flex items-center p-2 rounded-sm cursor-pointer transition-colors truncate hover:bg-zinc-800 text-white text-sm"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
         >
           <img
-            src="./assets/icons/icons8-ângulo-20.png"
+            src="./assets/icons/icons8-ângulo.png"
             alt="ângulo"
             class="mr-2"
           />
-          <span class="truncate font-semibold text-white">Ângulo</span>
+          <span class="truncate font-semibold text-stone-500">Ângulo</span>
         </label>
         <!-- diedro -->
         <label
           id="diedro"
           data-tooltip-text="D"
-          class="w-full flex items-center p-2 rounded-sm cursor-pointer transition-colors truncate hover:bg-zinc-800 text-white text-sm"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
         >
           <img
-            src="./assets/icons/icons8-ângulo-20 (2).png"
+            src="./assets/icons/icons8-diedro.png"
             alt="ângulo"
             class="mr-2"
           />
-          <span class="truncate font-semibold text-white">Diedro</span>
+          <span class="truncate font-semibold text-stone-500">Diedro</span>
         </label>
 
         <!-- distância -->
         <label
           id="distancia"
           data-tooltip-text="S"
-          class="w-full flex items-center p-2 rounded-sm cursor-pointer transition-colors truncate hover:bg-zinc-800 text-white text-sm"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
         >
           <img
-            src="./assets/icons/icons8-régua-20 (1).png"
+            src="./assets/icons/icons8-régua-20.png"
             alt="ângulo"
             class="mr-2"
           />
-          <span class="truncate font-semibold text-white">Distância</span>
+          <span class="truncate font-semibold text-stone-500">Distância</span>
         </label>
 
         <span
           id="cursor-tooltip"
-          class="fixed hidden px-2 py-1 bg-gray-200 text-black text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
+          class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
         >
         </span>
       </div>
     </aside>
 
-    <main id="viewer-area" class="flex-grow h-screen relative">
+    <main id="viewer-area" class="flex-grow h-screen relative bg-[#f5f5f5]">
       <div id="container3d"></div>
 
       <div
@@ -198,11 +162,11 @@
         class="absolute z-20 p-4 text-[#252525] hidden flex items-center space-x-4"
         style="top: 2rem; right: 2rem"
       >
-        <h2 id="measurement-title" class="text-lg font-bold text-white"></h2>
-
+        <h2
+          id="measurement-title"
+          class="text-lg font-bold text-stone-500"
+        ></h2>
         <p id="angle-text" class="text-lg font-mono text-[#ff802d]"></p>
-
-        <!-- <p id="angle-instructions" class="text-sm text-gray-300"></p> -->
       </div>
     </main>
 
