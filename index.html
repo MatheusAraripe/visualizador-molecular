@@ -126,7 +126,7 @@
         >
           <img
             src="./assets/icons/icons8-diedro.png"
-            alt="ângulo"
+            alt="Diedro"
             class="mr-2"
           />
           <span class="truncate font-semibold text-stone-500">Diedro</span>
@@ -140,18 +140,45 @@
         >
           <img
             src="./assets/icons/icons8-régua-20.png"
-            alt="ângulo"
+            alt="Distância"
             class="mr-2"
           />
           <span class="truncate font-semibold text-stone-500">Distância</span>
         </label>
+        <!-- carga -->
 
-        <span
-          id="cursor-tooltip"
-          class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
-        >
-        </span>
+        <div class="mt-4 pt-4">
+          <p class="text-sm font-bold text-stone-400 mb-2 block">Cargas</p>
+          <label
+            id="carga"
+            data-tooltip-text="C"
+            class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
+          >
+            <!-- <img
+            src="./assets/icons/icons8-carga-20.png"
+            {*Ajuste
+            o
+            caminho
+            para
+            seu
+            ícone*}
+            alt="carga"
+            class="mr-2 h-5 w-5"
+          /> -->
+            <span class="truncate font-semibold text-stone-500">CHELPG</span>
+          </label>
+        </div>
       </div>
+      <span
+        id="cursor-tooltip"
+        class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
+      >
+      </span>
+      <span
+        id="charge-tooltip"
+        class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
+      >
+      </span>
     </aside>
 
     <main id="viewer-area" class="flex-grow h-screen relative bg-[#f5f5f5]">

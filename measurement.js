@@ -1,14 +1,17 @@
 import * as THREE from "three";
 
-// Estado
+// --- Variáveis de Estado ---
 let isAngleModeActive = false;
 let selectedAtomsForAngle = [];
 let isDihedralModeActive = false;
 let selectedAtomsForDihedral = [];
 let isDistanceModeActive = false;
 let selectedAtomsForDistance = [];
+let isChargeModeActive = false;
+let lastChelpgCharges = [];
+let currentHoveredAtom = null;
 
-// Objetos Three.js
+// --- Objetos Three.js e DOM (serão preenchidos) ---
 let camera,
   renderer,
   controls,
@@ -16,13 +19,21 @@ let camera,
   angleHelpersGroup,
   raycaster,
   mouse;
+let logContainerElement, instructionsElement, chargeTooltipElement; // Adicionado chargeTooltipElement aqui
 
-// Elementos do DOM
-let logContainerElement, instructionsElement;
-
-const HIGHLIGHT_COLORS = { end_point: 0xace1af, vertex: 0xef9c66 };
+const HIGHLIGHT_COLORS = {
+  end_point: 0xace1af, // Verde pastel
+  vertex: 0xef9c66, // Laranja pastel
+};
 const LOCAL_STORAGE_KEY = "moleculeViewerMeasurements";
 const MAX_LOG_ENTRIES = 15;
+
+/**
+ * Função exportada para receber os dados de carga do script.js
+ */
+export const setChargeData = (charges) => {
+  lastChelpgCharges = charges;
+};
 
 // --- Manipuladores de Eventos ---
 const handleKeyDown = (event) => {
@@ -30,23 +41,26 @@ const handleKeyDown = (event) => {
   if (key === "a") toggleAngleMode();
   if (key === "d") toggleDihedralMode();
   if (key === "s") toggleDistanceMode();
+  if (key === "c") toggleChargeMode();
 };
 
 const onMouseDown = (event) => {
+  if (isChargeModeActive) return;
   if (
     (!isAngleModeActive && !isDihedralModeActive && !isDistanceModeActive) ||
     !moleculeGroup
   )
     return;
+
   const rect = renderer.domElement.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-  mouse.x = (x / rect.width) * 2 - 1;
-  mouse.y = -(y / rect.height) * 2 + 1;
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(
     moleculeGroup.children.filter((c) => c.geometry?.type === "SphereGeometry")
   );
+
   if (intersects.length > 0) {
     if (isAngleModeActive) {
       handleAngleAtomSelection(intersects[0].object);
@@ -58,14 +72,64 @@ const onMouseDown = (event) => {
   }
 };
 
+const onMouseMove = (event) => {
+  if (
+    !isChargeModeActive ||
+    !renderer ||
+    !camera ||
+    !raycaster ||
+    !mouse ||
+    !moleculeGroup ||
+    !chargeTooltipElement
+  ) {
+    if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
+    currentHoveredAtom = null;
+    return;
+  }
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(
+    moleculeGroup.children.filter((c) => c.geometry?.type === "SphereGeometry")
+  );
+
+  if (intersects.length > 0) {
+    const hoveredAtom = intersects[0].object;
+
+    chargeTooltipElement.style.left = `${event.clientX + 15}px`;
+    chargeTooltipElement.style.top = `${event.clientY + 15}px`;
+
+    // if (hoveredAtom === currentHoveredAtom) return;
+
+    currentHoveredAtom = hoveredAtom;
+    const atomIndex = hoveredAtom.userData.atomIndex;
+
+    if (atomIndex !== undefined && lastChelpgCharges[atomIndex] !== undefined) {
+      const charge = lastChelpgCharges[atomIndex];
+      chargeTooltipElement.textContent = `${charge.toFixed(6)}`;
+      chargeTooltipElement.classList.remove("hidden");
+    } else {
+      chargeTooltipElement.classList.add("hidden");
+      currentHoveredAtom = null;
+    }
+  } else {
+    chargeTooltipElement.classList.add("hidden");
+    currentHoveredAtom = null;
+  }
+};
+
 // --- Ativação/Desativação de Modos ---
 const toggleAngleMode = () => {
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
+  if (isChargeModeActive) toggleChargeMode();
   isAngleModeActive = !isAngleModeActive;
 
   const angleDisplay = document.getElementById("angle-display");
-  const btn = document.getElementById("angulo"); // Pega o botão
+  const btn = document.getElementById("angulo");
   if (!angleDisplay || !btn) return;
 
   if (isAngleModeActive) {
@@ -75,23 +139,24 @@ const toggleAngleMode = () => {
     const titleElement = angleDisplay.querySelector("#measurement-title");
     if (titleElement) titleElement.innerText = "Ângulo";
     updateAngleInstructions();
-    btn.classList.add("tool-active"); // <<< ADICIONADO
+    btn.classList.add("tool-active");
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearAngleSelection();
-    btn.classList.remove("tool-active"); // <<< ADICIONADO
+    btn.classList.remove("tool-active");
   }
 };
 
 const toggleDihedralMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDistanceModeActive) toggleDistanceMode();
+  if (isChargeModeActive) toggleChargeMode();
   isDihedralModeActive = !isDihedralModeActive;
 
   const angleDisplay = document.getElementById("angle-display");
-  const btn = document.getElementById("diedro"); // Pega o botão
+  const btn = document.getElementById("diedro");
   if (!angleDisplay || !btn) return;
 
   if (isDihedralModeActive) {
@@ -101,23 +166,24 @@ const toggleDihedralMode = () => {
     const titleElement = angleDisplay.querySelector("#measurement-title");
     if (titleElement) titleElement.innerText = "Diedro";
     updateDihedralInstructions();
-    btn.classList.add("tool-active"); // <<< ADICIONADO
+    btn.classList.add("tool-active");
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearDihedralSelection();
-    btn.classList.remove("tool-active"); // <<< ADICIONADO
+    btn.classList.remove("tool-active");
   }
 };
 
 const toggleDistanceMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
+  if (isChargeModeActive) toggleChargeMode();
   isDistanceModeActive = !isDistanceModeActive;
 
   const angleDisplay = document.getElementById("angle-display");
-  const btn = document.getElementById("distancia"); // Pega o botão
+  const btn = document.getElementById("distancia");
   if (!angleDisplay || !btn) return;
 
   if (isDistanceModeActive) {
@@ -127,20 +193,40 @@ const toggleDistanceMode = () => {
     const titleElement = angleDisplay.querySelector("#measurement-title");
     if (titleElement) titleElement.innerText = "Distância";
     updateDistanceInstructions();
-    btn.classList.add("tool-active"); // <<< ADICIONADO
+    btn.classList.add("tool-active");
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
     angleDisplay.classList.add("hidden");
     clearDistanceSelection();
-    btn.classList.remove("tool-active"); // <<< ADICIONADO
+    btn.classList.remove("tool-active");
   }
 };
 
-const resetMeasurementModes = () => {
+const toggleChargeMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
+  isChargeModeActive = !isChargeModeActive;
+
+  const btn = document.getElementById("carga");
+  if (isChargeModeActive) {
+    if (renderer?.domElement) renderer.domElement.style.cursor = "default";
+    if (controls) controls.enabled = true;
+    if (btn) btn.classList.add("tool-active");
+  } else {
+    if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
+    if (btn) btn.classList.remove("tool-active");
+    if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
+    currentHoveredAtom = null;
+  }
+};
+
+export const resetMeasurementModes = () => {
+  if (isAngleModeActive) toggleAngleMode();
+  if (isDihedralModeActive) toggleDihedralMode();
+  if (isDistanceModeActive) toggleDistanceMode();
+  if (isChargeModeActive) toggleChargeMode();
 };
 
 // --- Lógica de Ângulo Convencional ---
@@ -349,7 +435,7 @@ const clearAngleHelpers = () => {
 };
 
 // --- Função Principal de Exportação ---
-export const initializeMeasurementTools = (three_objects) => {
+export const initializeMeasurementTools = (three_objects, dom_elements) => {
   camera = three_objects.camera;
   renderer = three_objects.renderer;
   controls = three_objects.controls;
@@ -358,11 +444,29 @@ export const initializeMeasurementTools = (three_objects) => {
   raycaster = three_objects.raycaster;
   mouse = three_objects.mouse;
 
-  // Configura os eventos de teclado e mouse
+  chargeTooltipElement = document.getElementById("charge-tooltip");
+
+  // As referências para o log/instructions não são usadas neste módulo
+  // mas o script.js as envia, então não há problema.
+
+  if (!chargeTooltipElement)
+    console.error("Elemento #charge-tooltip não encontrado!");
+
+  // --- Configura os eventos ---
   window.addEventListener("keydown", handleKeyDown);
   renderer.domElement.addEventListener("mousedown", onMouseDown);
+  renderer.domElement.addEventListener("mousemove", onMouseMove);
 
-  // Adiciona listeners de clique aos botões da sidebar
+  // *** ADICIONADO: Listener para quando o mouse SAI do canvas ***
+  renderer.domElement.addEventListener("mouseleave", () => {
+    // Se estivermos no modo Carga, esconde o tooltip e reseta o átomo
+    if (isChargeModeActive) {
+      if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
+      currentHoveredAtom = null;
+    }
+  });
+
+  // Adiciona listeners de clique aos botões
   document.getElementById("angulo")?.addEventListener("click", toggleAngleMode);
   document
     .getElementById("diedro")
@@ -370,6 +474,7 @@ export const initializeMeasurementTools = (three_objects) => {
   document
     .getElementById("distancia")
     ?.addEventListener("click", toggleDistanceMode);
+  document.getElementById("carga")?.addEventListener("click", toggleChargeMode);
 
   return { resetMeasurementModes };
 };

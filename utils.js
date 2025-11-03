@@ -102,3 +102,50 @@ export const extractCycleEnergies = (text) => {
   }
   return energies;
 };
+
+// Adicione esta função ao seu utils.js
+
+/**
+ * Extrai o *último* bloco de cargas CHELPG de um arquivo de texto.
+ * @param {string} text - O conteúdo completo do arquivo.
+ * @returns {Array<number>} Um array com os valores das cargas.
+ */
+export const extractLastChelpgCharges = (text) => {
+  const chargeBlocks = text.split("CHELPG Charges");
+  if (chargeBlocks.length < 2) {
+    // Não encontrou nenhum bloco "CHELPG Charges"
+    return [];
+  }
+
+  const lastBlock = chargeBlocks[chargeBlocks.length - 1]; // Pega o último bloco
+  const lines = lastBlock.split("\n");
+  const charges = [];
+  let foundStart = false;
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+
+    if (!foundStart) {
+      // Procura a linha '---' que marca o início dos dados
+      if (trimmedLine.startsWith("---")) {
+        foundStart = true;
+      }
+      continue; // Pula cabeçalho e a linha '---'
+    }
+
+    // Se encontrou o início, começa a ler
+    const parts = trimmedLine.split(/\s+/); // Divide por espaços
+
+    // Formato esperado: [index, Symbol, ':', charge] (4 partes)
+    if (parts.length === 4 && parts[2] === ":") {
+      const chargeValue = parseFloat(parts[3]);
+      if (!isNaN(chargeValue)) {
+        charges.push(chargeValue);
+      }
+    } else if (trimmedLine.startsWith("---")) {
+      // Se encontrou outra linha '---', é o fim do bloco
+      break;
+    }
+  }
+  return charges;
+};

@@ -5,14 +5,16 @@ import {
   parseAllVersions,
   calculateCenter,
   extractCycleEnergies,
+  extractLastChelpgCharges, //  IMPORTA A NOVA FUNÇÃO
 } from "./utils.js";
-import { initializeMeasurementTools } from "./measurement.js";
+import { initializeMeasurementTools, setChargeData } from "./measurement.js";
 
 // Variáveis de estado e da cena
 let scene, camera, renderer, controls, moleculeGroup, angleHelpersGroup;
 let allMoleculeVersions = []; // Armazena APENAS os arrays de átomos
 let cycleEnergies = []; // Array para armazenar apenas as energias
 let measurementTools = {};
+let lastChelpgCharges = []; //  ADICIONA ARRAY GLOBAL PARA CARGAS
 
 // Constantes de configuração
 const atomData = {
@@ -186,6 +188,12 @@ const processFileContent = (fileText, sourceName) => {
   // Processa átomos e energias separadamente
   allMoleculeVersions = parseAllVersions(fileText); // Retorna [ [átomosCiclo1], [átomosCiclo2], ... ]
   cycleEnergies = extractCycleEnergies(fileText); // Retorna [ energiaCiclo1, energiaCiclo2, ... ]
+  lastChelpgCharges = extractLastChelpgCharges(fileText); // cargas
+
+  // ENVIA AS CARGAS PARA O MÓDULO DE MEDIÇÃO
+  if (setChargeData) {
+    setChargeData(lastChelpgCharges);
+  }
 
   // Verifica se pelo menos foram encontrados ciclos com átomos
   if (allMoleculeVersions.length > 0) {
@@ -198,6 +206,7 @@ const processFileContent = (fileText, sourceName) => {
     populateVersionSelector(0, "Arquivo inválido");
     updateEnergyDisplay(null);
     cycleEnergies = []; // Limpa energias se não houver geometrias
+    lastChelpgCharges = []; // Limpa cargas em caso de erro
   }
 };
 
@@ -368,12 +377,14 @@ const initThreeJS = () => {
 const drawAtoms = (atoms) => {
   if (!moleculeGroup) return; // Segurança
   let count = 0;
-  atoms.forEach((atom) => {
+  atoms.forEach((atom, index) => {
     const config = atomData[atom.symbol] || atomData.DEFAULT;
     const geometry = new THREE.SphereGeometry(config.radius, 32, 32);
     const material = new THREE.MeshBasicMaterial({ color: config.color });
     const sphere = new THREE.Mesh(geometry, material);
     sphere.position.copy(atom.vec);
+    // 7. ADICIONA O ÍNDICE DO ÁTOMO AO OBJETO 3D
+    sphere.userData.atomIndex = index;
     moleculeGroup.add(sphere);
     count++;
   });
