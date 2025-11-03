@@ -5,9 +5,14 @@ import {
   parseAllVersions,
   calculateCenter,
   extractCycleEnergies,
-  extractLastChelpgCharges, //  IMPORTA A NOVA FUNÇÃO
+  extractLastChelpgCharges,
+  extractLastMullikenCharges,
 } from "./utils.js";
-import { initializeMeasurementTools, setChargeData } from "./measurement.js";
+import {
+  initializeMeasurementTools,
+  setChargeData,
+  setMullikenChargeData,
+} from "./measurement.js";
 
 // Variáveis de estado e da cena
 let scene, camera, renderer, controls, moleculeGroup, angleHelpersGroup;
@@ -15,6 +20,7 @@ let allMoleculeVersions = []; // Armazena APENAS os arrays de átomos
 let cycleEnergies = []; // Array para armazenar apenas as energias
 let measurementTools = {};
 let lastChelpgCharges = []; //  ADICIONA ARRAY GLOBAL PARA CARGAS
+let lastMullikenCharges = []; // ADICIONA ARRAY GLOBAL PARA MULLIKEN
 
 // Constantes de configuração
 const atomData = {
@@ -189,10 +195,14 @@ const processFileContent = (fileText, sourceName) => {
   allMoleculeVersions = parseAllVersions(fileText); // Retorna [ [átomosCiclo1], [átomosCiclo2], ... ]
   cycleEnergies = extractCycleEnergies(fileText); // Retorna [ energiaCiclo1, energiaCiclo2, ... ]
   lastChelpgCharges = extractLastChelpgCharges(fileText); // cargas
+  lastMullikenCharges = extractLastMullikenCharges(fileText); // CARGAS MULLIKEN
 
   // ENVIA AS CARGAS PARA O MÓDULO DE MEDIÇÃO
   if (setChargeData) {
     setChargeData(lastChelpgCharges);
+  }
+  if (setMullikenChargeData) {
+    setMullikenChargeData(lastMullikenCharges);
   }
 
   // Verifica se pelo menos foram encontrados ciclos com átomos
@@ -200,6 +210,12 @@ const processFileContent = (fileText, sourceName) => {
     updateFileNameDisplay(sourceName);
     populateVersionSelector(allMoleculeVersions.length); // Popula com base no número de geometrias
     displayMoleculeVersion(0); // Exibe o primeiro ciclo
+    console.log(
+      `Cargas CHELPG encontradas: ${lastChelpgCharges.length} átomos.`
+    );
+    console.log(
+      `Cargas Mulliken encontradas: ${lastMullikenCharges.length} átomos.`
+    );
   } else {
     updateFileNameDisplay(sourceName + " (Inválido)");
     console.error("Nenhuma geometria válida encontrada:", sourceName);
@@ -207,6 +223,7 @@ const processFileContent = (fileText, sourceName) => {
     updateEnergyDisplay(null);
     cycleEnergies = []; // Limpa energias se não houver geometrias
     lastChelpgCharges = []; // Limpa cargas em caso de erro
+    lastMullikenCharges = [];
   }
 };
 

@@ -149,3 +149,50 @@ export const extractLastChelpgCharges = (text) => {
   }
   return charges;
 };
+
+/**
+ * Extrai o *último* bloco de cargas MULLIKEN de um arquivo de texto.
+ * @param {string} text - O conteúdo completo do arquivo.
+ * @returns {Array<number>} Um array com os valores das cargas.
+ */
+export const extractLastMullikenCharges = (text) => {
+  const chargeBlocks = text.split("MULLIKEN ATOMIC CHARGES");
+  if (chargeBlocks.length < 2) {
+    return []; // Nenhum bloco encontrado
+  }
+
+  const lastBlock = chargeBlocks[chargeBlocks.length - 1]; // Pega o último bloco
+  const lines = lastBlock.split("\n");
+  const charges = [];
+  let foundStart = false;
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+
+    if (!foundStart) {
+      // Procura a linha '---' que marca o início dos dados
+      if (trimmedLine.startsWith("---")) {
+        foundStart = true;
+      }
+      continue; // Pula cabeçalho e a linha '---'
+    }
+
+    // Se encontrou o início, começa a ler
+    const parts = trimmedLine.split(/\s+/); // Divide por espaços
+
+    // Formato esperado: [index, Symbol, ':', charge] (4 partes)
+    if (parts.length === 4 && parts[2] === ":") {
+      const chargeValue = parseFloat(parts[3]);
+      if (!isNaN(chargeValue)) {
+        charges.push(chargeValue);
+      }
+    } else if (
+      trimmedLine.startsWith("---") ||
+      trimmedLine.startsWith("Sum of atomic charges:")
+    ) {
+      // Fim do bloco
+      break;
+    }
+  }
+  return charges;
+};

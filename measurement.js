@@ -9,6 +9,8 @@ let isDistanceModeActive = false;
 let selectedAtomsForDistance = [];
 let isChargeModeActive = false;
 let lastChelpgCharges = [];
+let isMullikenModeActive = false;
+let lastMullikenCharges = [];
 let currentHoveredAtom = null;
 
 // --- Objetos Three.js e DOM (serão preenchidos) ---
@@ -34,6 +36,9 @@ const MAX_LOG_ENTRIES = 15;
 export const setChargeData = (charges) => {
   lastChelpgCharges = charges;
 };
+export const setMullikenChargeData = (charges) => {
+  lastMullikenCharges = charges;
+};
 
 // --- Manipuladores de Eventos ---
 const handleKeyDown = (event) => {
@@ -42,10 +47,11 @@ const handleKeyDown = (event) => {
   if (key === "d") toggleDihedralMode();
   if (key === "s") toggleDistanceMode();
   if (key === "c") toggleChargeMode();
+  if (key === "m") toggleMullikenMode();
 };
 
 const onMouseDown = (event) => {
-  if (isChargeModeActive) return;
+  if (isChargeModeActive || isMullikenModeActive) return;
   if (
     (!isAngleModeActive && !isDihedralModeActive && !isDistanceModeActive) ||
     !moleculeGroup
@@ -73,8 +79,9 @@ const onMouseDown = (event) => {
 };
 
 const onMouseMove = (event) => {
+  // ATUALIZADO: Verifica ambos os modos de carga
   if (
-    !isChargeModeActive ||
+    (!isChargeModeActive && !isMullikenModeActive) ||
     !renderer ||
     !camera ||
     !raycaster ||
@@ -102,14 +109,30 @@ const onMouseMove = (event) => {
     chargeTooltipElement.style.left = `${event.clientX + 15}px`;
     chargeTooltipElement.style.top = `${event.clientY + 15}px`;
 
-    // if (hoveredAtom === currentHoveredAtom) return;
+    if (hoveredAtom === currentHoveredAtom) return;
 
     currentHoveredAtom = hoveredAtom;
     const atomIndex = hoveredAtom.userData.atomIndex;
 
-    if (atomIndex !== undefined && lastChelpgCharges[atomIndex] !== undefined) {
-      const charge = lastChelpgCharges[atomIndex];
-      chargeTooltipElement.textContent = `${charge.toFixed(6)}`;
+    // --- LÓGICA DE HOVER ATUALIZADA ---
+    let chargeText = null;
+    if (
+      isChargeModeActive &&
+      atomIndex !== undefined &&
+      lastChelpgCharges[atomIndex] !== undefined
+    ) {
+      chargeText = `${lastChelpgCharges[atomIndex].toFixed(6)}`;
+    } else if (
+      isMullikenModeActive &&
+      atomIndex !== undefined &&
+      lastMullikenCharges[atomIndex] !== undefined
+    ) {
+      chargeText = `${lastMullikenCharges[atomIndex].toFixed(6)}`;
+    }
+    // --- FIM DA LÓGICA ---
+
+    if (chargeText) {
+      chargeTooltipElement.textContent = chargeText;
       chargeTooltipElement.classList.remove("hidden");
     } else {
       chargeTooltipElement.classList.add("hidden");
@@ -126,6 +149,7 @@ const toggleAngleMode = () => {
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
   if (isChargeModeActive) toggleChargeMode();
+  if (isMullikenModeActive) toggleMullikenMode();
   isAngleModeActive = !isAngleModeActive;
 
   const angleDisplay = document.getElementById("angle-display");
@@ -153,6 +177,7 @@ const toggleDihedralMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDistanceModeActive) toggleDistanceMode();
   if (isChargeModeActive) toggleChargeMode();
+  if (isMullikenModeActive) toggleMullikenMode();
   isDihedralModeActive = !isDihedralModeActive;
 
   const angleDisplay = document.getElementById("angle-display");
@@ -180,6 +205,7 @@ const toggleDistanceMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
   if (isChargeModeActive) toggleChargeMode();
+  if (isMullikenModeActive) toggleMullikenMode();
   isDistanceModeActive = !isDistanceModeActive;
 
   const angleDisplay = document.getElementById("angle-display");
@@ -207,6 +233,7 @@ const toggleChargeMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
+  if (isMullikenModeActive) toggleMullikenMode();
   isChargeModeActive = !isChargeModeActive;
 
   const btn = document.getElementById("carga");
@@ -222,11 +249,31 @@ const toggleChargeMode = () => {
   }
 };
 
+const toggleMullikenMode = () => {
+  if (isAngleModeActive) toggleAngleMode();
+  if (isDihedralModeActive) toggleDihedralMode();
+  if (isDistanceModeActive) toggleDistanceMode();
+  if (isChargeModeActive) toggleChargeMode();
+  isMullikenModeActive = !isMullikenModeActive;
+
+  const btn = document.getElementById("mulliken"); // ID do novo botão
+  if (isMullikenModeActive) {
+    if (renderer?.domElement) renderer.domElement.style.cursor = "default";
+    if (controls) controls.enabled = true;
+    if (btn) btn.classList.add("tool-active");
+  } else {
+    if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
+    if (btn) btn.classList.remove("tool-active");
+    if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
+    currentHoveredAtom = null;
+  }
+};
 export const resetMeasurementModes = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
   if (isChargeModeActive) toggleChargeMode();
+  if (isMullikenModeActive) toggleMullikenMode(); // Adicionado
 };
 
 // --- Lógica de Ângulo Convencional ---
@@ -446,9 +493,6 @@ export const initializeMeasurementTools = (three_objects, dom_elements) => {
 
   chargeTooltipElement = document.getElementById("charge-tooltip");
 
-  // As referências para o log/instructions não são usadas neste módulo
-  // mas o script.js as envia, então não há problema.
-
   if (!chargeTooltipElement)
     console.error("Elemento #charge-tooltip não encontrado!");
 
@@ -456,6 +500,12 @@ export const initializeMeasurementTools = (three_objects, dom_elements) => {
   window.addEventListener("keydown", handleKeyDown);
   renderer.domElement.addEventListener("mousedown", onMouseDown);
   renderer.domElement.addEventListener("mousemove", onMouseMove);
+  renderer.domElement.addEventListener("mouseleave", () => {
+    if (isChargeModeActive || isMullikenModeActive) {
+      if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
+      currentHoveredAtom = null;
+    }
+  });
 
   // *** ADICIONADO: Listener para quando o mouse SAI do canvas ***
   renderer.domElement.addEventListener("mouseleave", () => {
@@ -475,6 +525,9 @@ export const initializeMeasurementTools = (three_objects, dom_elements) => {
     .getElementById("distancia")
     ?.addEventListener("click", toggleDistanceMode);
   document.getElementById("carga")?.addEventListener("click", toggleChargeMode);
+  document
+    .getElementById("mulliken")
+    ?.addEventListener("click", toggleMullikenMode); // NOVO
 
   return { resetMeasurementModes };
 };
