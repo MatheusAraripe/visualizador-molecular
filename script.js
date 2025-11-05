@@ -75,6 +75,30 @@ const setupTooltipListeners = () => {
   });
 };
 
+const setupColorPicker = () => {
+  const colorPicker = document.getElementById("bg-color-picker");
+  if (!colorPicker) {
+    console.error("Não foi possível encontrar o seletor de cor.");
+    return;
+  }
+
+  // Define a cor inicial da cena (pode ser qualquer cor)
+  const initialColor = "#fefefe";
+  if (scene) {
+    scene.background = new THREE.Color(initialColor);
+  }
+  colorPicker.value = initialColor; // Sincroniza o seletor
+
+  // Adiciona o listener para "input" (muda em tempo real)
+  colorPicker.addEventListener("input", (event) => {
+    const newColor = event.target.value;
+    if (scene) {
+      // ATUALIZADO: Muda a cor de fundo da cena do Three.js
+      scene.background = new THREE.Color(newColor);
+    }
+  });
+};
+
 const main = async () => {
   // Tenta inicializar Three.js e verifica o sucesso
   const threeJsInitialized = initThreeJS();
@@ -130,6 +154,7 @@ const main = async () => {
   setupTooltipListeners(); // exibe tooltip
 
   setupFileUploadListener(); // Configura o upload
+  setupColorPicker();
 
   // Estado inicial da UI
   populateVersionSelector(0, "Carregue um arquivo...");
@@ -332,61 +357,53 @@ const updateEnergyDisplay = (energyValue) => {
 const initThreeJS = () => {
   try {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color("#fefefe");
-    camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    camera.position.z = 25;
+    // ATUALIZADO: Define uma cor de fundo inicial (que o color picker vai sobrescrever)
+    scene.background = new THREE.Color("#f5f5f5");
 
     const container = document.getElementById("viewer-area");
     if (!container) {
-      console.error(
-        "Falha Crítica em initThreeJS: Elemento #viewer-area não encontrado!"
-      );
+      console.error("Elemento #viewer-area não encontrado!");
       return false;
     }
-
     const canvasContainer = document.getElementById("container3d");
     if (!canvasContainer) {
-      console.error(
-        "Falha Crítica em initThreeJS: Elemento #container3d não encontrado!"
-      );
+      console.error("Elemento #container3d não encontrado!");
       return false;
     }
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    if (!renderer) {
-      // Verificação extra
-      console.error("Falha Crítica: THREE.WebGLRenderer falhou ao ser criado.");
-      return false;
-    }
-    if (container.clientWidth === 0 || container.clientHeight === 0) {
-      console.warn(
-        "Atenção: #viewer-area pode ter dimensões zero no momento da inicialização."
-      );
-    }
-    renderer.setSize(
-      container.clientWidth || 100,
-      container.clientHeight || 100
-    ); // Adiciona fallback
+    const initialWidth = container.clientWidth || 100;
+    const initialHeight = container.clientHeight || 100;
+
+    camera = new THREE.PerspectiveCamera(
+      75,
+      initialWidth / initialHeight,
+      0.1,
+      1000
+    );
+    camera.position.z = 25;
+
+    // ATUALIZADO: Renderer NÃO é mais transparente (alpha: false por padrão)
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      // alpha: true FOI REMOVIDO
+    });
+    renderer.setSize(initialWidth, initialHeight);
+    // renderer.setClearColor(0x000000, 0); // REMOVIDO
     canvasContainer.appendChild(renderer.domElement);
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-
     moleculeGroup = new THREE.Group();
     angleHelpersGroup = new THREE.Group();
     scene.add(moleculeGroup, angleHelpersGroup);
 
     window.addEventListener("resize", onWindowResize, false);
-    onWindowResize(); // Ajusta o tamanho inicial
+    setTimeout(onWindowResize, 50);
     animate();
 
     return true; // Success
   } catch (error) {
-    console.error(
-      "Erro INESPERADO durante a inicialização do Three.js:",
-      error
-    ); // Log 17
-    renderer = undefined; // Garante que renderer está undefined em caso de erro
+    console.error("Erro durante a inicialização do Three.js:", error);
     return false; // Failure
   }
 };
