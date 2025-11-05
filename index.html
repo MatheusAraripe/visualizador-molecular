@@ -101,6 +101,28 @@
           </svg>
           <span class="truncate font-semibold text-stone-500">Anexar</span>
         </label>
+        <button
+          id="save-image-btn"
+          class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm mt-2"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5 mr-2 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          <span class="truncate font-semibold text-stone-500"
+            >Salvar Imagem</span
+          >
+        </button>
       </div>
       <!-- TOOLS -->
       <div class="mt-4 pt-4">
@@ -181,7 +203,12 @@
           class="text-sm font-bold text-stone-400 mb-2 block"
           >Cor da Tela</label
         >
-        <input type="color" id="bg-color-picker" value="#fefefe" />
+        <input
+          type="color"
+          id="bg-color-picker"
+          value="#fefefe"
+          class="hover:cursor-pointer"
+        />
       </div>
       <span
         id="cursor-tooltip"

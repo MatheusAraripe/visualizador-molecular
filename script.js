@@ -99,6 +99,54 @@ const setupColorPicker = () => {
   });
 };
 
+/**
+ * Adiciona o listener para o botão de salvar imagem.
+ */
+const setupSaveButtonListener = () => {
+  const saveBtn = document.getElementById("save-image-btn");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", saveCanvasAsPNG);
+  } else {
+    console.warn("Botão #save-image-btn não encontrado.");
+  }
+};
+
+/**
+ * Captura o canvas do renderer e inicia o download de um PNG.
+ */
+const saveCanvasAsPNG = () => {
+  if (!renderer) {
+    console.error("Renderizador não está pronto para salvar imagem.");
+    return;
+  }
+
+  try {
+    // Força uma renderização extra para garantir que o buffer esteja atualizado
+    renderer.render(scene, camera);
+
+    const dataURL = renderer.domElement.toDataURL("image/png");
+    const link = document.createElement("a");
+
+    // Pega o nome do arquivo, se disponível, ou usa um padrão
+    const fileNameDisplay = document.getElementById("file-name-display");
+    let fileName = "VMA_IMG.png";
+    if (fileNameDisplay && fileNameDisplay.textContent) {
+      fileName = `${fileNameDisplay.textContent.split(".")[0]}.png`;
+    }
+
+    link.download = fileName;
+    link.href = dataURL;
+
+    // Adiciona, clica e remove o link (necessário para Firefox)
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.error("Não foi possível salvar a imagem.", e);
+    alert("Erro ao salvar imagem. Verifique o console para detalhes.");
+  }
+};
+
 const main = async () => {
   // Tenta inicializar Three.js e verifica o sucesso
   const threeJsInitialized = initThreeJS();
@@ -155,6 +203,7 @@ const main = async () => {
 
   setupFileUploadListener(); // Configura o upload
   setupColorPicker();
+  setupSaveButtonListener();
 
   // Estado inicial da UI
   populateVersionSelector(0, "Carregue um arquivo...");
@@ -385,7 +434,7 @@ const initThreeJS = () => {
     // ATUALIZADO: Renderer NÃO é mais transparente (alpha: false por padrão)
     renderer = new THREE.WebGLRenderer({
       antialias: true,
-      // alpha: true FOI REMOVIDO
+      preserveDrawingBuffer: true, // Essencial para salvar a imagem
     });
     renderer.setSize(initialWidth, initialHeight);
     // renderer.setClearColor(0x000000, 0); // REMOVIDO
