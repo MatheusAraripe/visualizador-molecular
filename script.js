@@ -34,6 +34,37 @@ const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
 const BOND_DISTANCE_TOLERANCE = 1.2;
 
 /**
+ * Configura o botão hamburger e o clique fora para a sidebar móvel.
+ */
+const setupMobileSidebar = () => {
+  const toggleBtn = document.getElementById("sidebar-toggle");
+  const sidebar = document.getElementById("sidebar");
+  const mainArea = document.getElementById("viewer-area"); // O <main>
+
+  if (!toggleBtn || !sidebar || !mainArea) {
+    console.warn("Elementos da sidebar móvel não encontrados.");
+    return;
+  }
+
+  // Click no Hamburger: Alterna a visibilidade da sidebar
+  toggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation(); // Impede o 'mainArea' de fechar imediatamente
+    sidebar.classList.toggle("-translate-x-full");
+  });
+
+  // Click na Área Principal (Canvas): Fecha a sidebar
+  mainArea.addEventListener("click", () => {
+    // Verifica se a sidebar está aberta (não tem a classe)
+    const isSidebarOpen = !sidebar.classList.contains("-translate-x-full");
+    // Verifica se estamos em modo mobile (botão hamburger está visível)
+    const isMobile = window.getComputedStyle(toggleBtn).display !== "none";
+
+    if (isMobile && isSidebarOpen) {
+      sidebar.classList.add("-translate-x-full");
+    }
+  });
+};
+/**
  * Configura os listeners para os tooltips que seguem o cursor.
  */
 const setupTooltipListeners = () => {
@@ -204,6 +235,7 @@ const main = async () => {
   setupFileUploadListener(); // Configura o upload
   setupColorPicker();
   setupSaveButtonListener();
+  setupMobileSidebar();
 
   // Estado inicial da UI
   populateVersionSelector(0, "Carregue um arquivo...");
