@@ -7,6 +7,7 @@ import {
   extractCycleEnergies,
   extractLastChelpgCharges,
   extractLastMullikenCharges,
+  prepareChartData,
 } from "./utils.js";
 import {
   initializeMeasurementTools,
@@ -21,6 +22,7 @@ let cycleEnergies = []; // Array para armazenar apenas as energias
 let measurementTools = {};
 let lastChelpgCharges = []; //  ADICIONA ARRAY GLOBAL PARA CARGAS
 let lastMullikenCharges = []; // ADICIONA ARRAY GLOBAL PARA MULLIKEN
+let energyChartInstance = null; // guardar a instância do gráfico
 
 // Constantes de configuração
 const atomData = {
@@ -236,11 +238,79 @@ const main = async () => {
   setupColorPicker();
   setupSaveButtonListener();
   setupMobileSidebar();
-
+  setupChartModal();
   // Estado inicial da UI
   populateVersionSelector(0, "Carregue um arquivo...");
   updateFileNameDisplay(null);
   updateEnergyDisplay(null); // Chama a função para ocultar/definir estado inicial
+};
+
+// --- NOVA FUNÇÃO: Configurar o Modal do Gráfico ---
+const setupChartModal = () => {
+  const openBtn = document.getElementById("btn-grafico");
+  const closeBtn = document.getElementById("close-chart-btn");
+  const modal = document.getElementById("chart-modal");
+  const canvas = document.getElementById("energyChart");
+
+  // Abrir Modal
+  openBtn.addEventListener("click", () => {
+    if (cycleEnergies.length === 0) {
+      alert(
+        "Não há dados de energia para exibir. Carregue um arquivo primeiro."
+      );
+      return;
+    }
+    modal.classList.remove("hidden");
+    renderChart(canvas);
+  });
+
+  // Fechar Modal
+  const closeModal = () => modal.classList.add("hidden");
+  closeBtn.addEventListener("click", closeModal);
+
+  // Fechar clicando fora
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+};
+
+// --- NOVA FUNÇÃO: Renderizar o Gráfico ---
+const renderChart = (canvasElement) => {
+  if (energyChartInstance) {
+    energyChartInstance.destroy(); // Destrói o anterior para não sobrepor
+  }
+
+  const chartConfig = prepareChartData(cycleEnergies);
+
+  // Ajuste fino para responsividade do Chart.js dentro do modal
+  const config = {
+    type: "line",
+    data: chartConfig,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: false, // Energias geralmente não começam em 0
+          title: { display: true, text: "Energia (Hartree)" },
+        },
+        x: {
+          title: { display: true, text: "Ciclos" },
+        },
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              return `Energia: ${context.parsed.y.toFixed(6)} Eh`;
+            },
+          },
+        },
+      },
+    },
+  };
+
+  energyChartInstance = new Chart(canvasElement, config);
 };
 
 /**

@@ -103,7 +103,38 @@ export const extractCycleEnergies = (text) => {
   return energies;
 };
 
-// Adicione esta função ao seu utils.js
+/**
+ * Prepara os dados de energia para o Chart.js.
+ * @param {Array<number>} energies - Array com os valores de energia.
+ * @returns {Object} Objeto de configuração para o Chart.js.
+ */
+export const prepareChartData = (energies) => {
+  // Filtra valores nulos ou inválidos, mantendo o índice original se necessário,
+  // mas para um gráfico linear sequencial, geralmente plotamos o que temos.
+  // Aqui assumimos que o array energies corresponde aos ciclos 1, 2, 3...
+
+  const labels = energies.map((_, index) => `Ciclo ${index + 1}`);
+  const data = energies.map((e) => (e !== null && !isNaN(e) ? e : null));
+
+  return {
+    labels: labels,
+    datasets: [
+      {
+        label: "Energia Total (Eh)",
+        data: data,
+        borderColor: "#0ea5e9", // Cor da linha (sky-500)
+        backgroundColor: "rgba(14, 165, 233, 0.2)", // Cor de preenchimento abaixo da linha
+        borderWidth: 2,
+        pointBackgroundColor: "#ffffff",
+        pointBorderColor: "#0ea5e9",
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.1, // Suavização da linha
+      },
+    ],
+  };
+};
 
 /**
  * Extrai o *último* bloco de cargas CHELPG de um arquivo de texto.
