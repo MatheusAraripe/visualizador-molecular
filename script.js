@@ -245,33 +245,89 @@ const main = async () => {
   updateEnergyDisplay(null); // Chama a função para ocultar/definir estado inicial
 };
 
-// --- NOVA FUNÇÃO: Configurar o Modal do Gráfico ---
+// --- Configurar o Modal do Gráfico ---
 const setupChartModal = () => {
-  const openBtn = document.getElementById("btn-grafico");
+  const openBtn = document.getElementById("btn-grafico"); // Certifique-se que este ID existe no botão da sidebar
   const closeBtn = document.getElementById("close-chart-btn");
-  const modal = document.getElementById("chart-modal");
+  const chartWindow = document.getElementById("chart-window");
+  const chartHeader = document.getElementById("chart-header");
   const canvas = document.getElementById("energyChart");
 
-  // Abrir Modal
-  openBtn.addEventListener("click", () => {
-    if (cycleEnergies.length === 0) {
-      alert(
-        "Não há dados de energia para exibir. Carregue um arquivo primeiro."
-      );
-      return;
-    }
-    modal.classList.remove("hidden");
-    renderChart(canvas);
-  });
+  // Torna a janela arrastável usando o cabeçalho
+  makeElementDraggable(chartWindow, chartHeader);
 
-  // Fechar Modal
-  const closeModal = () => modal.classList.add("hidden");
-  closeBtn.addEventListener("click", closeModal);
+  // Abrir Janela
+  if (openBtn) {
+    openBtn.addEventListener("click", () => {
+      if (cycleEnergies.length === 0) {
+        alert(
+          "Não há dados de energia para exibir. Carregue um arquivo primeiro."
+        );
+        return;
+      }
+      chartWindow.classList.remove("hidden");
+      renderChart(canvas);
+    });
+  }
 
-  // Fechar clicando fora
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) closeModal();
+  // Fechar Janela
+  closeBtn.addEventListener("click", () => {
+    chartWindow.classList.add("hidden");
   });
+};
+
+// --- Função para Tornar Elemento Arrastável (com cursor Grab) ---
+const makeElementDraggable = (element, handle) => {
+  let pos1 = 0,
+    pos2 = 0,
+    pos3 = 0,
+    pos4 = 0;
+
+  handle.onmousedown = dragMouseDown;
+
+  function dragMouseDown(e) {
+    e = e || window.event;
+    // Importante: Não prevenir default se o clique for nos botões de resize nativos (cantos),
+    // mas como o handle é apenas o cabeçalho, podemos prevenir.
+    e.preventDefault();
+
+    // Pega a posição inicial do cursor:
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+
+    // Para de arrastar ao soltar o botão
+    document.onmouseup = closeDragElement;
+    // Chama a função quando o cursor se move
+    document.onmousemove = elementDrag;
+
+    // Muda cursor para "agarrando"
+    handle.style.cursor = "grabbing";
+    document.body.style.cursor = "grabbing"; // Garante que o cursor não mude se sair do header rápido
+  }
+
+  function elementDrag(e) {
+    e = e || window.event;
+    e.preventDefault();
+    // Calcula a nova posição do cursor:
+    pos1 = pos3 - e.clientX;
+    pos2 = pos4 - e.clientY;
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+
+    // Define a nova posição do elemento:
+    element.style.top = element.offsetTop - pos2 + "px";
+    element.style.left = element.offsetLeft - pos1 + "px";
+  }
+
+  function closeDragElement() {
+    // Para de mover quando o botão do mouse é solto:
+    document.onmouseup = null;
+    document.onmousemove = null;
+
+    // Volta o cursor para "agarrar" (mão aberta)
+    handle.style.cursor = "grab";
+    document.body.style.cursor = "default";
+  }
 };
 
 // --- NOVA FUNÇÃO: Renderizar o Gráfico ---
