@@ -247,16 +247,21 @@ const main = async () => {
 
 // --- Configurar o Modal do Gráfico ---
 const setupChartModal = () => {
-  const openBtn = document.getElementById("btn-grafico"); // Certifique-se que este ID existe no botão da sidebar
+  const openBtn = document.getElementById("btn-grafico");
   const closeBtn = document.getElementById("close-chart-btn");
   const chartWindow = document.getElementById("chart-window");
   const chartHeader = document.getElementById("chart-header");
   const canvas = document.getElementById("energyChart");
+  const overlay = document.getElementById("chart-overlay"); // NOVO
 
-  // Torna a janela arrastável usando o cabeçalho
   makeElementDraggable(chartWindow, chartHeader);
 
-  // Abrir Janela
+  // Função para fechar (usada pelo botão e pelo clique no overlay)
+  const closeChart = () => {
+    chartWindow.classList.add("hidden");
+    if (overlay) overlay.classList.add("hidden"); // Esconde o overlay
+  };
+
   if (openBtn) {
     openBtn.addEventListener("click", () => {
       if (cycleEnergies.length === 0) {
@@ -265,18 +270,29 @@ const setupChartModal = () => {
         );
         return;
       }
+
+      // Reset de posição para mobile
+      if (window.innerWidth < 768) {
+        chartWindow.style.top = "";
+        chartWindow.style.left = "";
+      }
+
       chartWindow.classList.remove("hidden");
+      if (overlay) overlay.classList.remove("hidden"); // Mostra o overlay
       renderChart(canvas);
     });
   }
 
-  // Fechar Janela
-  closeBtn.addEventListener("click", () => {
-    chartWindow.classList.add("hidden");
-  });
+  // Fecha ao clicar no X
+  closeBtn.addEventListener("click", closeChart);
+
+  // NOVO: Fecha ao clicar no fundo escuro (comportamento padrão de modal mobile)
+  if (overlay) {
+    overlay.addEventListener("click", closeChart);
+  }
 };
 
-// --- Função para Tornar Elemento Arrastável (com cursor Grab) ---
+// --- Função para Tornar Elemento Arrastável (ATUALIZADO) ---
 const makeElementDraggable = (element, handle) => {
   let pos1 = 0,
     pos2 = 0,
@@ -286,51 +302,53 @@ const makeElementDraggable = (element, handle) => {
   handle.onmousedown = dragMouseDown;
 
   function dragMouseDown(e) {
+    // --- TRAVA PARA MOBILE ---
+    // Se a tela for menor que 768px (breakpoint md do Tailwind), não arrasta
+    if (window.innerWidth < 768) return;
+    // -------------------------
+
     e = e || window.event;
-    // Importante: Não prevenir default se o clique for nos botões de resize nativos (cantos),
-    // mas como o handle é apenas o cabeçalho, podemos prevenir.
-    e.preventDefault();
+    pos3 = e.clientX || (e.touches && e.touches[0].clientX);
+    pos4 = e.clientY || (e.touches && e.touches[0].clientY);
 
-    // Pega a posição inicial do cursor:
-    pos3 = e.clientX;
-    pos4 = e.clientY;
-
-    // Para de arrastar ao soltar o botão
     document.onmouseup = closeDragElement;
-    // Chama a função quando o cursor se move
     document.onmousemove = elementDrag;
 
-    // Muda cursor para "agarrando"
     handle.style.cursor = "grabbing";
-    document.body.style.cursor = "grabbing"; // Garante que o cursor não mude se sair do header rápido
+    document.body.style.cursor = "grabbing";
   }
 
   function elementDrag(e) {
     e = e || window.event;
     e.preventDefault();
-    // Calcula a nova posição do cursor:
-    pos1 = pos3 - e.clientX;
-    pos2 = pos4 - e.clientY;
-    pos3 = e.clientX;
-    pos4 = e.clientY;
 
-    // Define a nova posição do elemento:
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+    pos1 = pos3 - clientX;
+    pos2 = pos4 - clientY;
+    pos3 = clientX;
+    pos4 = clientY;
+
     element.style.top = element.offsetTop - pos2 + "px";
     element.style.left = element.offsetLeft - pos1 + "px";
   }
 
   function closeDragElement() {
-    // Para de mover quando o botão do mouse é solto:
     document.onmouseup = null;
     document.onmousemove = null;
 
-    // Volta o cursor para "agarrar" (mão aberta)
-    handle.style.cursor = "grab";
+    // Só reseta o cursor se for desktop
+    if (window.innerWidth >= 768) {
+      handle.style.cursor = "grab";
+    } else {
+      handle.style.cursor = "default";
+    }
     document.body.style.cursor = "default";
   }
 };
 
-// --- NOVA FUNÇÃO: Renderizar o Gráfico ---
+// ---Renderizar o Gráfico ---
 const renderChart = (canvasElement) => {
   if (energyChartInstance) {
     energyChartInstance.destroy(); // Destrói o anterior para não sobrepor
@@ -348,10 +366,26 @@ const renderChart = (canvasElement) => {
       scales: {
         y: {
           beginAtZero: false, // Energias geralmente não começam em 0
-          title: { display: true, text: "Energia (Hartree)" },
+          title: {
+            display: true,
+            text: "Energia (Hartree)",
+            font: {
+              weight: "bold",
+              family: "'Roboto Mono', monospace",
+              size: 14,
+            },
+          },
         },
         x: {
-          title: { display: true, text: "Ciclos" },
+          title: {
+            display: true,
+            text: "Ciclos",
+            font: {
+              weight: "bold",
+              family: "'Roboto Mono', monospace",
+              size: 14,
+            },
+          },
         },
       },
       plugins: {
