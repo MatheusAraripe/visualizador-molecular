@@ -269,6 +269,29 @@
                 >Gráfico Energia</span
               >
             </label>
+            <label
+              id="btn-tabela"
+              class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm dark:hover:bg-zinc-800 text-gray-600 dark:text-gray-300 text-sm mt-1"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2 text-stone-500 dark:text-stone-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+              <span
+                class="truncate font-semibold text-stone-500 dark:text-stone-400"
+                >Coordenadas</span
+              >
+            </label>
           </div>
         </div>
         <div class="mt-4 pt-4">
@@ -349,6 +372,56 @@
 
       <div class="p-2 flex-grow w-full h-full bg-[#f5f5f5] relative">
         <canvas id="energyChart"></canvas>
+      </div>
+    </div>
+
+    <div
+      id="table-window"
+      class="hidden fixed z-30 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 resize-both overflow-auto top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] h-[60vh] md:top-20 md:left-20 md:translate-x-0 md:translate-y-0 md:w-[500px] md:h-[400px] min-w-[300px] min-h-[250px] max-w-[95vw] max-h-[90vh]"
+    >
+      <div
+        id="table-header"
+        class="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 md:cursor-grab md:active:cursor-grabbing select-none rounded-t-lg"
+      >
+        <h3 class="text-sm font-bold text-gray-700 dark:text-gray-200">
+          Coordenadas Geométricas
+        </h3>
+        <button
+          id="close-table-btn"
+          class="text-gray-500 hover:text-red-500 focus:outline-none"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="flex-grow w-full overflow-auto bg-white dark:bg-gray-800">
+        <table
+          class="w-full text-sm text-left text-gray-500 dark:text-gray-400"
+        >
+          <thead
+            class="text-xs text-gray-700 uppercase bg-gray-100 dark:bg-gray-700 dark:text-gray-200 sticky top-0"
+          >
+            <tr>
+              <th scope="col" class="px-4 py-2">#</th>
+              <th scope="col" class="px-4 py-2">Átomo</th>
+              <th scope="col" class="px-4 py-2">X</th>
+              <th scope="col" class="px-4 py-2">Y</th>
+              <th scope="col" class="px-4 py-2">Z</th>
+            </tr>
+          </thead>
+          <tbody id="geometry-table-body"></tbody>
+        </table>
       </div>
     </div>
 

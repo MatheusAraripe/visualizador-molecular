@@ -23,6 +23,7 @@ let measurementTools = {};
 let lastChelpgCharges = []; //  ADICIONA ARRAY GLOBAL PARA CARGAS
 let lastMullikenCharges = []; // ADICIONA ARRAY GLOBAL PARA MULLIKEN
 let energyChartInstance = null; // guardar a instância do gráfico
+let currentCycleIndex = 0; // NOVO: Rastreia o índice atual para a tabela
 
 // Constantes de configuração
 const atomData = {
@@ -34,6 +35,79 @@ const atomData = {
 };
 const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
 const BOND_DISTANCE_TOLERANCE = 1.2;
+
+// --- NOVA FUNÇÃO: Configurar Janela da Tabela ---
+const setupTableWindow = () => {
+  const openBtn = document.getElementById("btn-tabela");
+  const closeBtn = document.getElementById("close-table-btn");
+  const tableWindow = document.getElementById("table-window");
+  const tableHeader = document.getElementById("table-header");
+  const overlay = document.getElementById("chart-overlay"); // Reutiliza o overlay
+
+  makeElementDraggable(tableWindow, tableHeader);
+
+  const closeTable = () => {
+    tableWindow.classList.add("hidden");
+    // Só esconde o overlay se o gráfico também estiver fechado (caso raro de ambos abertos)
+    if (document.getElementById("chart-window").classList.contains("hidden")) {
+      if (overlay) overlay.classList.add("hidden");
+    }
+  };
+
+  if (openBtn) {
+    openBtn.addEventListener("click", () => {
+      if (allMoleculeVersions.length === 0) {
+        alert("Nenhuma geometria carregada.");
+        return;
+      }
+
+      // Reset mobile
+      if (window.innerWidth < 768) {
+        tableWindow.style.top = "";
+        tableWindow.style.left = "";
+      }
+
+      renderTable(currentCycleIndex); // Renderiza o ciclo atual
+      tableWindow.classList.remove("hidden");
+      if (overlay) overlay.classList.remove("hidden");
+    });
+  }
+
+  closeBtn.addEventListener("click", closeTable);
+  // Overlay click handling is shared in setupChartModal or added here if that runs first
+  if (overlay) overlay.addEventListener("click", closeTable);
+};
+
+// --- NOVA FUNÇÃO: Renderizar Tabela ---
+const renderTable = (index) => {
+  const tbody = document.getElementById("geometry-table-body");
+  if (!tbody) return;
+  tbody.innerHTML = ""; // Limpa
+
+  if (!allMoleculeVersions[index]) return;
+
+  allMoleculeVersions[index].forEach((atom, i) => {
+    const row = document.createElement("tr");
+    row.className =
+      "bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600";
+
+    // Colunas: #, Símbolo, X, Y, Z
+    row.innerHTML = `
+            <td class="px-4 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">${i}</td>
+            <td class="px-4 py-2">${atom.symbol}</td>
+            <td class="px-4 py-2 font-mono text-xs">${atom.vec.x.toFixed(
+              6
+            )}</td>
+            <td class="px-4 py-2 font-mono text-xs">${atom.vec.y.toFixed(
+              6
+            )}</td>
+            <td class="px-4 py-2 font-mono text-xs">${atom.vec.z.toFixed(
+              6
+            )}</td>
+        `;
+    tbody.appendChild(row);
+  });
+};
 
 /**
  * Configura o botão hamburger e o clique fora para a sidebar móvel.
@@ -239,6 +313,7 @@ const main = async () => {
   setupSaveButtonListener();
   setupMobileSidebar();
   setupChartModal();
+  setupTableWindow();
   // Estado inicial da UI
   populateVersionSelector(0, "Carregue um arquivo...");
   updateFileNameDisplay(null);
@@ -525,6 +600,7 @@ const populateVersionSelector = (numVersions, defaultMessage = "") => {
  * @param {number} index - O índice do ciclo a ser exibido.
  */
 const displayMoleculeVersion = (index) => {
+  currentCycleIndex = index; // Salva o índice globalmente
   if (!moleculeGroup) {
     console.error("displayMoleculeVersion: moleculeGroup não definido!");
     return;
@@ -574,6 +650,12 @@ const displayMoleculeVersion = (index) => {
   drawAtoms(centeredAtoms);
   drawBonds(centeredAtoms);
   updateEnergyDisplay(energy);
+
+  // ATUALIZADO: Se a tabela estiver aberta, atualize-a
+  const tableWindow = document.getElementById("table-window");
+  if (tableWindow && !tableWindow.classList.contains("hidden")) {
+    renderTable(index);
+  }
 };
 
 /**
