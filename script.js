@@ -88,12 +88,11 @@ const renderTable = (index) => {
 
   allMoleculeVersions[index].forEach((atom, i) => {
     const row = document.createElement("tr");
-    row.className =
-      "bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600";
+    row.className = "bg-[#f5f5f5] border-b hover:bg-gray-50";
 
     // Colunas: #, Símbolo, X, Y, Z
     row.innerHTML = `
-            <td class="px-4 py-2 font-medium text-gray-900 dark:text-white whitespace-nowrap">${i}</td>
+            <td class="px-4 py-2 font-medium text-[#252525] whitespace-nowrap">${i}</td>
             <td class="px-4 py-2">${atom.symbol}</td>
             <td class="px-4 py-2 font-mono text-xs">${atom.vec.x.toFixed(
               6
