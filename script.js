@@ -14,6 +14,7 @@ import {
   setChargeData,
   setMullikenChargeData,
 } from "./measurement.js";
+import { initializeAtomLabels, clearAllLabels } from "./ui.js";
 
 // Variáveis de estado e da cena
 let scene, camera, renderer, controls, moleculeGroup, angleHelpersGroup;
@@ -616,6 +617,7 @@ const displayMoleculeVersion = (index) => {
     updateEnergyDisplay(cycleEnergies[index] ?? null); // Tenta mostrar energia mesmo assim
     while (moleculeGroup.children.length > 0)
       moleculeGroup.remove(moleculeGroup.children[0]);
+    clearAllLabels();
     return;
   }
 
@@ -675,11 +677,9 @@ const updateEnergyDisplay = (energyValue) => {
   }
 };
 
-// --- Funções de Renderização (initThreeJS com Debugging) ---
 const initThreeJS = () => {
   try {
     scene = new THREE.Scene();
-    // ATUALIZADO: Define uma cor de fundo inicial (que o color picker vai sobrescrever)
     scene.background = new THREE.Color("#f5f5f5");
 
     const container = document.getElementById("viewer-area");
@@ -718,6 +718,8 @@ const initThreeJS = () => {
     moleculeGroup = new THREE.Group();
     angleHelpersGroup = new THREE.Group();
     scene.add(moleculeGroup, angleHelpersGroup);
+
+    initializeAtomLabels(scene, camera, renderer, moleculeGroup);
 
     window.addEventListener("resize", onWindowResize, false);
     setTimeout(onWindowResize, 50);

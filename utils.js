@@ -16,6 +16,7 @@ export const loadMoleculeFile = async (url) => {
 const parseSingleMoleculeAtoms = (blockText) => {
   const atoms = [];
   const lines = blockText.split("\n");
+  let atomIndex = 1;
   let foundCoordinates = false;
   const coordsMarker = "CARTESIAN COORDINATES (ANGSTROEM)";
 
@@ -38,7 +39,11 @@ const parseSingleMoleculeAtoms = (blockText) => {
       const symbol = parts[0].toUpperCase();
       const [x, y, z] = parts.slice(1).map(parseFloat);
       if (!isNaN(x) && /^[A-Z]{1,2}$/.test(symbol)) {
-        atoms.push({ symbol, vec: new THREE.Vector3(x, y, z) });
+        atoms.push({
+          symbol,
+          index: atomIndex++,
+          vec: new THREE.Vector3(x, y, z),
+        });
       } else if (atoms.length > 0) {
         break; // Assume fim do bloco de átomos
       }
