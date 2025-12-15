@@ -307,7 +307,7 @@
     >
       <div id="container3d"></div>
 
-      <div
+      <!-- <div
         id="angle-display"
         class="absolute z-20 p-4 text-[#252525] hidden flex items-center space-x-4"
         style="top: 2rem; right: 2rem"
@@ -317,6 +317,19 @@
           class="text-lg font-bold text-stone-500"
         ></h2>
         <p id="angle-text" class="text-lg font-mono text-[#ff802d]"></p>
+      </div> -->
+
+      <div
+        id="measure-result-box"
+        class="absolute bottom-6 left-6 z-40 hidden md:flex items-center space-x-3 backdrop-blur p-4 max-w-sm"
+      >
+        <div class="flex flex-col">
+          <span
+            id="measure-typewriter-text"
+            class="text-xl font-bold text-[#252525] font-mono min-h-[1.75rem]"
+          >
+          </span>
+        </div>
       </div>
     </main>
     <div
@@ -403,6 +416,11 @@
         </table>
       </div>
     </div>
+
+    <div
+      id="measure-cursor-tooltip"
+      class="fixed hidden px-3 py-2 bg-black/80 backdrop-blur-sm text-white text-sm font-mono rounded shadow-xl pointer-events-none z-50 border border-white/20"
+    ></div>
 
     <script type="module" src="script.js"></script>
   </body>

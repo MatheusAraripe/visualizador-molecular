@@ -1,3 +1,4 @@
+// measurement.js
 import * as THREE from "three";
 
 // --- Variáveis de Estado ---
@@ -13,7 +14,7 @@ let isMullikenModeActive = false;
 let lastMullikenCharges = [];
 let currentHoveredAtom = null;
 
-// --- Objetos Three.js e DOM (serão preenchidos) ---
+// --- Elementos DOM ---
 let camera,
   renderer,
   controls,
@@ -21,18 +22,19 @@ let camera,
   angleHelpersGroup,
   raycaster,
   mouse;
-let logContainerElement, instructionsElement, chargeTooltipElement; // Adicionado chargeTooltipElement aqui
+let chargeTooltipElement;
+// NOVOS ELEMENTOS
+let measureCursorTooltip;
+let measureResultBox;
+let measureTypeLabel;
+let measureTypewriterText;
 
 const HIGHLIGHT_COLORS = {
-  end_point: 0xace1af, // Verde pastel
-  vertex: 0xef9c66, // Laranja pastel
+  end_point: 0xace1af,
+  vertex: 0xef9c66,
 };
-const LOCAL_STORAGE_KEY = "moleculeViewerMeasurements";
-const MAX_LOG_ENTRIES = 15;
 
-/**
- * Função exportada para receber os dados de carga do script.js
- */
+// ... (Funções de setChargeData e setMullikenChargeData permanecem iguais) ...
 export const setChargeData = (charges) => {
   lastChelpgCharges = charges;
 };
@@ -40,7 +42,110 @@ export const setMullikenChargeData = (charges) => {
   lastMullikenCharges = charges;
 };
 
+// --- Função de Animação de Digitação (Typewriter) ---
+let typingTimeout; // Variável para controlar e limpar a animação anterior
+const runTypewriterEffect = (text) => {
+  if (!measureTypewriterText) return;
+
+  // Limpa animação anterior se houver
+  clearTimeout(typingTimeout);
+  measureTypewriterText.textContent = "";
+  measureResultBox.classList.remove("hidden");
+
+  let i = 0;
+  const speed = 50; // Velocidade em ms
+
+  const type = () => {
+    if (i < text.length) {
+      measureTypewriterText.textContent += text.charAt(i);
+      i++;
+      typingTimeout = setTimeout(type, speed);
+    }
+  };
+  type();
+};
+
+const hideMeasurementDisplays = () => {
+  if (measureCursorTooltip) measureCursorTooltip.classList.add("hidden");
+  if (measureResultBox) measureResultBox.classList.add("hidden");
+};
+
 // --- Manipuladores de Eventos ---
+const onMouseMove = (event) => {
+  // ATUALIZADO: Atualiza a posição do tooltip de medição se ele estiver visível
+  if (
+    measureCursorTooltip &&
+    !measureCursorTooltip.classList.contains("hidden")
+  ) {
+    measureCursorTooltip.style.left = `${event.clientX + 20}px`;
+    measureCursorTooltip.style.top = `${event.clientY + 20}px`;
+  }
+
+  // Lógica existente de Carga...
+  if (
+    (!isChargeModeActive && !isMullikenModeActive) ||
+    !renderer ||
+    !camera ||
+    !raycaster ||
+    !mouse ||
+    !moleculeGroup ||
+    !chargeTooltipElement
+  ) {
+    if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
+    currentHoveredAtom = null;
+    return;
+  }
+
+  // ... (Resto da lógica de Carga permanece igual) ...
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(
+    moleculeGroup.children.filter((c) => c.geometry?.type === "SphereGeometry")
+  );
+
+  if (intersects.length > 0) {
+    const hoveredAtom = intersects[0].object;
+    chargeTooltipElement.style.left = `${event.clientX + 15}px`;
+    chargeTooltipElement.style.top = `${event.clientY + 15}px`;
+
+    // ... (Lógica de exibição de carga continua aqui) ...
+    if (hoveredAtom === currentHoveredAtom) return;
+
+    currentHoveredAtom = hoveredAtom;
+    const atomIndex = hoveredAtom.userData.atomIndex;
+
+    let chargeText = null;
+    if (
+      isChargeModeActive &&
+      atomIndex !== undefined &&
+      lastChelpgCharges[atomIndex] !== undefined
+    ) {
+      chargeText = `${lastChelpgCharges[atomIndex].toFixed(6)}`;
+    } else if (
+      isMullikenModeActive &&
+      atomIndex !== undefined &&
+      lastMullikenCharges[atomIndex] !== undefined
+    ) {
+      chargeText = `${lastMullikenCharges[atomIndex].toFixed(6)}`;
+    }
+
+    if (chargeText) {
+      chargeTooltipElement.textContent = chargeText;
+      chargeTooltipElement.classList.remove("hidden");
+    } else {
+      chargeTooltipElement.classList.add("hidden");
+      currentHoveredAtom = null;
+    }
+  } else {
+    chargeTooltipElement.classList.add("hidden");
+    currentHoveredAtom = null;
+  }
+};
+
+// ... (handleKeyDown e onMouseDown permanecem iguais) ...
 const handleKeyDown = (event) => {
   const key = event.key.toLowerCase();
   if (key === "a") toggleAngleMode();
@@ -68,136 +173,65 @@ const onMouseDown = (event) => {
   );
 
   if (intersects.length > 0) {
-    if (isAngleModeActive) {
-      handleAngleAtomSelection(intersects[0].object);
-    } else if (isDihedralModeActive) {
+    if (isAngleModeActive) handleAngleAtomSelection(intersects[0].object);
+    else if (isDihedralModeActive)
       handleDihedralAtomSelection(intersects[0].object);
-    } else if (isDistanceModeActive) {
+    else if (isDistanceModeActive)
       handleDistanceAtomSelection(intersects[0].object);
-    }
   }
 };
 
-const onMouseMove = (event) => {
-  // ATUALIZADO: Verifica ambos os modos de carga
-  if (
-    (!isChargeModeActive && !isMullikenModeActive) ||
-    !renderer ||
-    !camera ||
-    !raycaster ||
-    !mouse ||
-    !moleculeGroup ||
-    !chargeTooltipElement
-  ) {
-    if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
-    currentHoveredAtom = null;
-    return;
-  }
-
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(
-    moleculeGroup.children.filter((c) => c.geometry?.type === "SphereGeometry")
-  );
-
-  if (intersects.length > 0) {
-    const hoveredAtom = intersects[0].object;
-
-    chargeTooltipElement.style.left = `${event.clientX + 15}px`;
-    chargeTooltipElement.style.top = `${event.clientY + 15}px`;
-
-    if (hoveredAtom === currentHoveredAtom) return;
-
-    currentHoveredAtom = hoveredAtom;
-    const atomIndex = hoveredAtom.userData.atomIndex;
-
-    // --- LÓGICA DE HOVER ATUALIZADA ---
-    let chargeText = null;
-    if (
-      isChargeModeActive &&
-      atomIndex !== undefined &&
-      lastChelpgCharges[atomIndex] !== undefined
-    ) {
-      chargeText = `${lastChelpgCharges[atomIndex].toFixed(6)}`;
-    } else if (
-      isMullikenModeActive &&
-      atomIndex !== undefined &&
-      lastMullikenCharges[atomIndex] !== undefined
-    ) {
-      chargeText = `${lastMullikenCharges[atomIndex].toFixed(6)}`;
-    }
-    // --- FIM DA LÓGICA ---
-
-    if (chargeText) {
-      chargeTooltipElement.textContent = chargeText;
-      chargeTooltipElement.classList.remove("hidden");
-    } else {
-      chargeTooltipElement.classList.add("hidden");
-      currentHoveredAtom = null;
-    }
-  } else {
-    chargeTooltipElement.classList.add("hidden");
-    currentHoveredAtom = null;
-  }
-};
-
-// --- Ativação/Desativação de Modos ---
+// --- Modificando os Toggles para esconder resultados ao trocar de ferramenta ---
 const toggleAngleMode = () => {
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
   if (isChargeModeActive) toggleChargeMode();
   if (isMullikenModeActive) toggleMullikenMode();
+
   isAngleModeActive = !isAngleModeActive;
 
-  const angleDisplay = document.getElementById("angle-display");
+  // Limpa displays antigos
+  // hideMeasurementDisplays();
+
   const btn = document.getElementById("angulo");
-  if (!angleDisplay || !btn) return;
+  if (!btn) return;
 
   if (isAngleModeActive) {
     if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
     if (controls) controls.enabled = false;
-    angleDisplay.classList.remove("hidden");
-    const titleElement = angleDisplay.querySelector("#measurement-title");
-    if (titleElement) titleElement.innerText = "Ângulo";
-    updateAngleInstructions();
     btn.classList.add("tool-active");
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
-    angleDisplay.classList.add("hidden");
     clearAngleSelection();
     btn.classList.remove("tool-active");
+    hideMeasurementDisplays();
   }
 };
 
+// Faça o mesmo para toggleDihedralMode e toggleDistanceMode (adicionar hideMeasurementDisplays)
 const toggleDihedralMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDistanceModeActive) toggleDistanceMode();
   if (isChargeModeActive) toggleChargeMode();
   if (isMullikenModeActive) toggleMullikenMode();
-  isDihedralModeActive = !isDihedralModeActive;
 
-  const angleDisplay = document.getElementById("angle-display");
+  isDihedralModeActive = !isDihedralModeActive;
+  // hideMeasurementDisplays(); // NOVO
+
   const btn = document.getElementById("diedro");
-  if (!angleDisplay || !btn) return;
+  if (!btn) return;
 
   if (isDihedralModeActive) {
     if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
     if (controls) controls.enabled = false;
-    angleDisplay.classList.remove("hidden");
-    const titleElement = angleDisplay.querySelector("#measurement-title");
-    if (titleElement) titleElement.innerText = "Diedro";
-    updateDihedralInstructions();
     btn.classList.add("tool-active");
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
-    angleDisplay.classList.add("hidden");
     clearDihedralSelection();
     btn.classList.remove("tool-active");
+    hideMeasurementDisplays();
   }
 };
 
@@ -206,29 +240,26 @@ const toggleDistanceMode = () => {
   if (isDihedralModeActive) toggleDihedralMode();
   if (isChargeModeActive) toggleChargeMode();
   if (isMullikenModeActive) toggleMullikenMode();
-  isDistanceModeActive = !isDistanceModeActive;
 
-  const angleDisplay = document.getElementById("angle-display");
+  isDistanceModeActive = !isDistanceModeActive;
+  // hideMeasurementDisplays(); // NOVO
+
   const btn = document.getElementById("distancia");
-  if (!angleDisplay || !btn) return;
+  if (!btn) return;
 
   if (isDistanceModeActive) {
     if (renderer?.domElement) renderer.domElement.style.cursor = "crosshair";
     if (controls) controls.enabled = false;
-    angleDisplay.classList.remove("hidden");
-    const titleElement = angleDisplay.querySelector("#measurement-title");
-    if (titleElement) titleElement.innerText = "Distância";
-    updateDistanceInstructions();
     btn.classList.add("tool-active");
   } else {
     if (renderer?.domElement) renderer.domElement.style.cursor = "grab";
     if (controls) controls.enabled = true;
-    angleDisplay.classList.add("hidden");
     clearDistanceSelection();
     btn.classList.remove("tool-active");
+    hideMeasurementDisplays();
   }
 };
-
+// ... toggleChargeMode e toggleMullikenMode permanecem iguais ...
 const toggleChargeMode = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
@@ -256,7 +287,7 @@ const toggleMullikenMode = () => {
   if (isChargeModeActive) toggleChargeMode();
   isMullikenModeActive = !isMullikenModeActive;
 
-  const btn = document.getElementById("mulliken"); // ID do novo botão
+  const btn = document.getElementById("mulliken");
   if (isMullikenModeActive) {
     if (renderer?.domElement) renderer.domElement.style.cursor = "default";
     if (controls) controls.enabled = true;
@@ -268,15 +299,19 @@ const toggleMullikenMode = () => {
     currentHoveredAtom = null;
   }
 };
+
 export const resetMeasurementModes = () => {
   if (isAngleModeActive) toggleAngleMode();
   if (isDihedralModeActive) toggleDihedralMode();
   if (isDistanceModeActive) toggleDistanceMode();
   if (isChargeModeActive) toggleChargeMode();
-  if (isMullikenModeActive) toggleMullikenMode(); // Adicionado
+  if (isMullikenModeActive) toggleMullikenMode();
+  hideMeasurementDisplays(); // NOVO
 };
 
-// --- Lógica de Ângulo Convencional ---
+// --- Funções de Seleção de Átomos e Cálculo (Modificadas) ---
+
+// ... Funções auxiliares (handleAngleAtomSelection, etc) permanecem iguais ...
 const handleAngleAtomSelection = (clickedAtom) => {
   const index = selectedAtomsForAngle.findIndex(
     (item) => item.atom === clickedAtom
@@ -288,21 +323,28 @@ const selectAtomForAngle = (atom) => {
   const originalMaterial = atom.material;
   selectedAtomsForAngle.push({ atom, originalMaterial });
   applyAngleHighlights();
-  updateAngleInstructions();
+
+  // Atualiza tooltip de progresso se quiser
+  if (measureCursorTooltip) {
+    measureCursorTooltip.textContent = `Ângulo: ${selectedAtomsForAngle.length}/3`;
+    measureCursorTooltip.classList.remove("hidden");
+  }
+
   if (selectedAtomsForAngle.length === 3) calculateAndDisplayAngle();
 };
 const deselectAtomForAngle = (index) => {
   clearAngleHighlights();
   selectedAtomsForAngle.splice(index, 1);
   applyAngleHighlights();
-  clearAngleHelpers();
-  updateAngleInstructions();
+  // hideMeasurementDisplays();
 };
 const clearAngleSelection = () => {
   clearAngleHighlights();
   selectedAtomsForAngle = [];
-  clearAngleHelpers();
+  // hideMeasurementDisplays();
 };
+
+// ... applyAngleHighlights, clearAngleHighlights permanecem iguais ...
 const clearAngleHighlights = () => {
   selectedAtomsForAngle.forEach(({ atom, originalMaterial }) => {
     if (atom) atom.material = originalMaterial;
@@ -318,15 +360,9 @@ const applyAngleHighlights = () => {
     atom.material = highlightMaterial;
   });
 };
-const updateAngleInstructions = () => {
-  const instructions = document.getElementById("angle-instructions");
-  if (!instructions) return;
-  const count = selectedAtomsForAngle.length;
-  instructions.innerText =
-    count < 3 ? `Selecione ${3 - count} átomo(s).` : `Ângulo calculado.`;
-};
+
+// --- CÁLCULO DE ÂNGULO ---
 const calculateAndDisplayAngle = () => {
-  clearAngleHelpers();
   if (selectedAtomsForAngle.length < 3) return;
   const atoms = selectedAtomsForAngle
     .map((item) => item.atom?.position)
@@ -336,11 +372,21 @@ const calculateAndDisplayAngle = () => {
   const v1 = new THREE.Vector3().subVectors(atomA, atomB);
   const v2 = new THREE.Vector3().subVectors(atomC, atomB);
   const angleDeg = THREE.MathUtils.radToDeg(v1.angleTo(v2));
-  const angleText = document.getElementById("angle-text");
-  if (angleText) angleText.innerText = `${angleDeg.toFixed(2)}°`;
+
+  const resultText = `${angleDeg.toFixed(2)}°`;
+
+  // 1. Atualiza o Tooltip do Cursor
+  if (measureCursorTooltip) {
+    measureCursorTooltip.textContent = resultText;
+    measureCursorTooltip.classList.remove("hidden");
+  }
+
+  // 2. Atualiza e Anima o Display Inferior Esquerdo
+  if (measureTypeLabel) measureTypeLabel.innerText = "Ângulo";
+  runTypewriterEffect(resultText);
 };
 
-// --- Lógica de Ângulo de Diedro ---
+// --- CÁLCULO DE DIEDRO ---
 const handleDihedralAtomSelection = (clickedAtom) => {
   const index = selectedAtomsForDihedral.findIndex(
     (item) => item.atom === clickedAtom
@@ -353,21 +399,27 @@ const selectAtomForDihedral = (atom) => {
   const originalMaterial = atom.material;
   selectedAtomsForDihedral.push({ atom, originalMaterial });
   applyDihedralHighlights();
-  updateDihedralInstructions();
+
+  // Atualiza tooltip de progresso
+  if (measureCursorTooltip) {
+    measureCursorTooltip.textContent = `Diedro: ${selectedAtomsForDihedral.length}/4`;
+    measureCursorTooltip.classList.remove("hidden");
+  }
+
   if (selectedAtomsForDihedral.length === 4) calculateAndDisplayDihedral();
 };
 const deselectAtomForDihedral = (index) => {
   clearDihedralHighlights();
   selectedAtomsForDihedral.splice(index, 1);
   applyDihedralHighlights();
-  clearAngleHelpers();
-  updateDihedralInstructions();
+  hideMeasurementDisplays();
 };
 const clearDihedralSelection = () => {
   clearDihedralHighlights();
   selectedAtomsForDihedral = [];
-  clearAngleHelpers();
+  hideMeasurementDisplays();
 };
+// ... applyDihedralHighlights, clearDihedralHighlights permanecem iguais ...
 const clearDihedralHighlights = () => {
   selectedAtomsForDihedral.forEach(({ atom, originalMaterial }) => {
     if (atom) atom.material = originalMaterial;
@@ -385,15 +437,8 @@ const applyDihedralHighlights = () => {
     atom.material = highlightMaterial;
   });
 };
-const updateDihedralInstructions = () => {
-  const instructions = document.getElementById("angle-instructions");
-  if (!instructions) return;
-  const count = selectedAtomsForDihedral.length;
-  instructions.innerText =
-    count < 4 ? `Selecione ${4 - count} átomo(s).` : `Diedro calculado.`;
-};
+
 const calculateAndDisplayDihedral = () => {
-  clearAngleHelpers();
   if (selectedAtomsForDihedral.length < 4) return;
   const atoms = selectedAtomsForDihedral
     .map((item) => item.atom?.position)
@@ -410,11 +455,21 @@ const calculateAndDisplayDihedral = () => {
     angleRad = -angleRad;
   }
   const angleDeg = THREE.MathUtils.radToDeg(angleRad);
-  const angleText = document.getElementById("angle-text");
-  if (angleText) angleText.innerText = `${angleDeg.toFixed(2)}°`;
+
+  const resultText = `${angleDeg.toFixed(2)}°`;
+
+  // 1. Tooltip
+  if (measureCursorTooltip) {
+    measureCursorTooltip.textContent = resultText;
+    measureCursorTooltip.classList.remove("hidden");
+  }
+
+  // 2. Animação Inferior
+  if (measureTypeLabel) measureTypeLabel.innerText = "Diedro";
+  runTypewriterEffect(resultText);
 };
 
-// --- Lógica de Distância ---
+// --- CÁLCULO DE DISTÂNCIA ---
 const handleDistanceAtomSelection = (clickedAtom) => {
   const index = selectedAtomsForDistance.findIndex(
     (item) => item.atom === clickedAtom
@@ -427,21 +482,27 @@ const selectAtomForDistance = (atom) => {
   const originalMaterial = atom.material;
   selectedAtomsForDistance.push({ atom, originalMaterial });
   applyDistanceHighlights();
-  updateDistanceInstructions();
+
+  // Atualiza tooltip de progresso
+  if (measureCursorTooltip) {
+    measureCursorTooltip.textContent = `Distância: ${selectedAtomsForDistance.length}/2`;
+    measureCursorTooltip.classList.remove("hidden");
+  }
+
   if (selectedAtomsForDistance.length === 2) calculateAndDisplayDistance();
 };
 const deselectAtomForDistance = (index) => {
   clearDistanceHighlights();
   selectedAtomsForDistance.splice(index, 1);
   applyDistanceHighlights();
-  clearAngleHelpers();
-  updateDistanceInstructions();
+  hideMeasurementDisplays();
 };
 const clearDistanceSelection = () => {
   clearDistanceHighlights();
   selectedAtomsForDistance = [];
-  clearAngleHelpers();
+  hideMeasurementDisplays();
 };
+// ... applyDistanceHighlights, clearDistanceHighlights permanecem iguais ...
 const clearDistanceHighlights = () => {
   selectedAtomsForDistance.forEach(({ atom, originalMaterial }) => {
     if (atom) atom.material = originalMaterial;
@@ -455,15 +516,8 @@ const applyDistanceHighlights = () => {
     atom.material = highlightMaterial;
   });
 };
-const updateDistanceInstructions = () => {
-  const instructions = document.getElementById("angle-instructions");
-  if (!instructions) return;
-  const count = selectedAtomsForDistance.length;
-  instructions.innerText =
-    count < 2 ? `Selecione ${2 - count} átomo(s).` : `Distância calculada.`;
-};
+
 const calculateAndDisplayDistance = () => {
-  clearAngleHelpers();
   if (selectedAtomsForDistance.length < 2) return;
   const atomsPos = selectedAtomsForDistance
     .map((item) => item.atom?.position)
@@ -471,17 +525,21 @@ const calculateAndDisplayDistance = () => {
   if (atomsPos.length < 2) return;
   const [posA, posB] = atomsPos;
   const distance = posA.distanceTo(posB);
-  const angleText = document.getElementById("angle-text");
-  if (angleText) angleText.innerText = `${distance.toFixed(3)} Å`;
+
+  const resultText = `${distance.toFixed(3)} Å`;
+
+  // 1. Tooltip
+  if (measureCursorTooltip) {
+    measureCursorTooltip.textContent = resultText;
+    measureCursorTooltip.classList.remove("hidden");
+  }
+
+  // 2. Animação Inferior
+  if (measureTypeLabel) measureTypeLabel.innerText = "Distância";
+  runTypewriterEffect(resultText);
 };
 
-// --- Função Comum ---
-const clearAngleHelpers = () => {
-  const angleText = document.getElementById("angle-text");
-  if (angleText) angleText.innerText = "";
-};
-
-// --- Função Principal de Exportação ---
+// --- Inicialização ---
 export const initializeMeasurementTools = (three_objects, dom_elements) => {
   camera = three_objects.camera;
   renderer = three_objects.renderer;
@@ -493,30 +551,23 @@ export const initializeMeasurementTools = (three_objects, dom_elements) => {
 
   chargeTooltipElement = document.getElementById("charge-tooltip");
 
-  if (!chargeTooltipElement)
-    console.error("Elemento #charge-tooltip não encontrado!");
+  // NOVOS ELEMENTOS
+  measureCursorTooltip = document.getElementById("measure-cursor-tooltip");
+  measureResultBox = document.getElementById("measure-result-box");
+  measureTypeLabel = document.getElementById("measure-type-label");
+  measureTypewriterText = document.getElementById("measure-typewriter-text");
 
-  // --- Configura os eventos ---
+  // Listeners e setup igual ao anterior...
   window.addEventListener("keydown", handleKeyDown);
   renderer.domElement.addEventListener("mousedown", onMouseDown);
   renderer.domElement.addEventListener("mousemove", onMouseMove);
   renderer.domElement.addEventListener("mouseleave", () => {
-    if (isChargeModeActive || isMullikenModeActive) {
-      if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
-      currentHoveredAtom = null;
-    }
-  });
-
-  // *** ADICIONADO: Listener para quando o mouse SAI do canvas ***
-  renderer.domElement.addEventListener("mouseleave", () => {
-    // Se estivermos no modo Carga, esconde o tooltip e reseta o átomo
     if (isChargeModeActive) {
       if (chargeTooltipElement) chargeTooltipElement.classList.add("hidden");
       currentHoveredAtom = null;
     }
   });
 
-  // Adiciona listeners de clique aos botões
   document.getElementById("angulo")?.addEventListener("click", toggleAngleMode);
   document
     .getElementById("diedro")
@@ -527,7 +578,7 @@ export const initializeMeasurementTools = (three_objects, dom_elements) => {
   document.getElementById("carga")?.addEventListener("click", toggleChargeMode);
   document
     .getElementById("mulliken")
-    ?.addEventListener("click", toggleMullikenMode); // NOVO
+    ?.addEventListener("click", toggleMullikenMode);
 
   return { resetMeasurementModes };
 };
