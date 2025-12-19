@@ -32,6 +32,7 @@ const atomData = {
   C: { color: 0x9d9d9d, radius: 0.4 },
   N: { color: 0x4e709d, radius: 0.42 },
   O: { color: 0xda6c6c, radius: 0.42 },
+  F: { color: 0x78ddcf, radius: 0.42 },
   DEFAULT: { color: 0x252525, radius: 0.4 },
 };
 const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
