@@ -321,16 +321,85 @@ const main = async () => {
   updateEnergyDisplay(null); // Chama a função para ocultar/definir estado inicial
 };
 
+// --- NOVA FUNÇÃO: Tornar Elemento Redimensionável (Customizado) ---
+const makeElementResizable = (element, handle) => {
+  // Configurações de Limites (Desktop)
+  const MIN_WIDTH = 300;
+  const MIN_HEIGHT = 250;
+  const MAX_WIDTH = 800; // Limite máximo fixo ou relativo
+  const MAX_HEIGHT = 600;
+
+  let isResizing = false;
+  let originalWidth = 0;
+  let originalHeight = 0;
+  let originalMouseX = 0;
+  let originalMouseY = 0;
+
+  handle.addEventListener("mousedown", (e) => {
+    // Garante que só funciona no desktop
+    if (window.innerWidth < 768) return;
+
+    e.preventDefault();
+    isResizing = true;
+
+    // Captura dimensões atuais
+    const rect = element.getBoundingClientRect();
+    originalWidth = rect.width;
+    originalHeight = rect.height;
+    originalMouseX = e.pageX;
+    originalMouseY = e.pageY;
+
+    // Adiciona listeners globais para movimento suave
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+  });
+
+  const resize = (e) => {
+    if (!isResizing) return;
+
+    // Calcula nova largura/altura baseada no deslocamento do mouse
+    let newWidth = originalWidth + (e.pageX - originalMouseX);
+    let newHeight = originalHeight + (e.pageY - originalMouseY);
+
+    // Aplica os limites MÍNIMOS
+    if (newWidth < MIN_WIDTH) newWidth = MIN_WIDTH;
+    if (newHeight < MIN_HEIGHT) newHeight = MIN_HEIGHT;
+
+    // Aplica os limites MÁXIMOS
+    if (newWidth > MAX_WIDTH) newWidth = MAX_WIDTH;
+    if (newHeight > MAX_HEIGHT) newHeight = MAX_HEIGHT;
+
+    // Aplica ao elemento
+    element.style.width = `${newWidth}px`;
+    element.style.height = `${newHeight}px`;
+
+    // Se houver um gráfico Chart.js dentro, ele redimensionará automaticamente
+    // graças ao 'maintainAspectRatio: false' já configurado.
+  };
+
+  const stopResize = () => {
+    isResizing = false;
+    document.removeEventListener("mousemove", resize);
+    document.removeEventListener("mouseup", stopResize);
+  };
+};
+
 // --- Configurar o Modal do Gráfico ---
 const setupChartModal = () => {
   const openBtn = document.getElementById("btn-grafico");
   const closeBtn = document.getElementById("close-chart-btn");
   const chartWindow = document.getElementById("chart-window");
   const chartHeader = document.getElementById("chart-header");
+  const resizeHandle = document.getElementById("resize-handle"); // Pegamos a alça
   const canvas = document.getElementById("energyChart");
-  const overlay = document.getElementById("chart-overlay"); // NOVO
+  const overlay = document.getElementById("chart-overlay");
 
   makeElementDraggable(chartWindow, chartHeader);
+
+  // NOVO: Torna a janela redimensionável (aumentar/diminuir)
+  if (resizeHandle && chartWindow) {
+    makeElementResizable(chartWindow, resizeHandle);
+  }
 
   // Função para fechar (usada pelo botão e pelo clique no overlay)
   const closeChart = () => {
@@ -355,6 +424,10 @@ const setupChartModal = () => {
 
       chartWindow.classList.remove("hidden");
       if (overlay) overlay.classList.remove("hidden"); // Mostra o overlay
+
+      // Resetar tamanho padrão ao abrir (opcional, se quiser resetar sempre)
+      chartWindow.style.width = "400px";
+      chartWindow.style.height = "350px";
       renderChart(canvas);
     });
   }
