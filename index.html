@@ -28,6 +28,16 @@
         border-radius: 0.75rem; /* Equivalente a rounded-xl */
         overflow: hidden; /* Garante que o canvas não "vaze" pelos cantos arredondados */
       }
+
+      /* Substitui o estilo antigo de .tool-active */
+      button.tool-active {
+        background-color: #e5e7eb;
+        box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+      }
+      button.tool-active img {
+        opacity: 1 !important;
+        filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1));
+      }
       #cursor-tooltip {
         transition: opacity 0.1s ease-out; /* Suaviza o aparecimento/desaparecimento */
       }
@@ -89,7 +99,7 @@
     </button>
     <aside
       id="sidebar"
-      class="w-64 h-screen bg-[#f5f5f5] p-4 flex flex-col flex-shrink-0 z-20 fixed md:relative transform md:translate-x-0 transition-transform duration-300 ease-in-out"
+      class="w-64 h-screen bg-[#f5f5f5] p-4 flex flex-col flex-shrink-0 z-50 fixed md:relative transform md:translate-x-0 transition-transform duration-300 ease-in-out"
     >
       <h1 class="text-3xl font-bold font-mono mb-2 text-gray-800">ChemView</h1>
       <div
@@ -173,51 +183,8 @@
             >
           </button>
         </div>
-        <!-- TOOLS -->
-        <div class="mt-4 pt-4">
-          <p class="text-sm font-bold text-stone-400 mb-2 block">Ferramentas</p>
-          <!-- ângulo -->
-          <label
-            id="angulo"
-            data-tooltip-text="A"
-            class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
-          >
-            <img
-              src="./assets/icons/icons8-ângulo.png"
-              alt="ângulo"
-              class="mr-2"
-            />
-            <span class="truncate font-semibold text-stone-500">Ângulo</span>
-          </label>
-          <!-- diedro -->
-          <label
-            id="diedro"
-            data-tooltip-text="D"
-            class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
-          >
-            <img
-              src="./assets/icons/icons8-diedro.png"
-              alt="Diedro"
-              class="mr-2"
-            />
-            <span class="truncate font-semibold text-stone-500">Diedro</span>
-          </label>
-
-          <!-- distância -->
-          <label
-            id="distancia"
-            data-tooltip-text="S"
-            class="w-full flex items-center p-2 rounded-md cursor-pointer transition-colors truncate hover:bg-[#fefefe] hover:shadow-sm text-gray-600 text-sm"
-          >
-            <img
-              src="./assets/icons/icons8-régua-20.png"
-              alt="Distância"
-              class="mr-2"
-            />
-            <span class="truncate font-semibold text-stone-500">Distância</span>
-          </label>
+        <div>
           <!-- carga -->
-
           <div class="mt-4 pt-4">
             <p class="text-sm font-bold text-stone-400 mb-2 block">Cargas</p>
             <label
@@ -291,16 +258,6 @@
           />
         </div>
       </div>
-      <span
-        id="cursor-tooltip"
-        class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
-      >
-      </span>
-      <span
-        id="charge-tooltip"
-        class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
-      >
-      </span>
     </aside>
 
     <main
@@ -308,18 +265,6 @@
       class="w-full h-screen relative bg-[#f5f5f5] md:flex-grow"
     >
       <div id="container3d"></div>
-
-      <!-- <div
-        id="angle-display"
-        class="absolute z-20 p-4 text-[#252525] hidden flex items-center space-x-4"
-        style="top: 2rem; right: 2rem"
-      >
-        <h2
-          id="measurement-title"
-          class="text-lg font-bold text-stone-500"
-        ></h2>
-        <p id="angle-text" class="text-lg font-mono text-[#ff802d]"></p>
-      </div> -->
 
       <div
         id="measure-result-box"
@@ -442,6 +387,102 @@
       class="fixed hidden px-3 py-2 bg-black/80 backdrop-blur-sm text-white text-sm font-mono rounded shadow-xl pointer-events-none z-50 border border-white/20"
     ></div>
 
+    <div
+      id="floating-toolbar"
+      class="fixed z-40 flex flex-row items-center bg-[#f5f5f5] backdrop-blur-md rounded-md border border-stone-200 transition-colors p-1.5 md:p-2 bottom-12 md:bottom-6 left-1/2 transform -translate-x-1/2"
+    >
+      <div
+        id="toolbar-handle"
+        class="hidden md:flex cursor-grab p-2 text-stone-400 hover:text-stone-600 items-center justify-center border-r border-stone-300 mr-1 pr-2"
+        title="Arraste (Desktop)"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5 pointer-events-none"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 8h16M4 16h16"
+          />
+        </svg>
+      </div>
+
+      <div id="toolbar-buttons" class="flex flex-row gap-1 md:gap-2">
+        <button
+          id="angulo"
+          data-tooltip-text="Ângulo (A)"
+          class="rounded-md hover:bg-[#fefefe] transition-colors flex flex-col items-center justify-center group relative p-1.5 md:p-2"
+        >
+          <img
+            src="./assets/icons/icons8-ângulo.png"
+            alt="ângulo"
+            class="pointer-events-none opacity-70 group-hover:opacity-100 w-5 h-5 md:w-6 md:h-6"
+          />
+        </button>
+
+        <button
+          id="diedro"
+          data-tooltip-text="Diedro (D)"
+          class="rounded-md hover:bg-[#fefefe] transition-colors flex flex-col items-center justify-center group relative p-1.5 md:p-2"
+        >
+          <img
+            src="./assets/icons/icons8-diedro.png"
+            alt="Diedro"
+            class="pointer-events-none opacity-70 group-hover:opacity-100 w-5 h-5 md:w-6 md:h-6"
+          />
+        </button>
+
+        <button
+          id="distancia"
+          data-tooltip-text="Distância (S)"
+          class="rounded-md hover:bg-[#fefefe] transition-colors flex flex-col items-center justify-center group relative p-1.5 md:p-2"
+        >
+          <img
+            src="./assets/icons/icons8-régua-20.png"
+            alt="Distância"
+            class="pointer-events-none opacity-70 group-hover:opacity-100 w-5 h-5 md:w-6 md:h-6"
+          />
+        </button>
+      </div>
+
+      <div class="hidden md:block border-l border-stone-300 ml-1 pl-2">
+        <button
+          id="rotate-toolbar-btn"
+          class="p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-colors"
+          title="Girar barra"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4 pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+    <span
+      id="cursor-tooltip"
+      class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
+    >
+    </span>
+    <span
+      id="charge-tooltip"
+      class="fixed hidden px-2 py-1 bg-zinc-800 text-[#fefefe] text-xs rounded-sm shadow-lg z-50 pointer-events-none whitespace-nowrap"
+    >
+    </span>
     <script type="module" src="script.js"></script>
   </body>
 </html>

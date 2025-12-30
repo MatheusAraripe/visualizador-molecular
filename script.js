@@ -38,6 +38,66 @@ const atomData = {
 const covalentRadii = { H: 0.37, C: 0.77, N: 0.75, O: 0.73, DEFAULT: 0.6 };
 const BOND_DISTANCE_TOLERANCE = 1.2;
 
+const setupFloatingToolbar = () => {
+  // SE ESTIVER NO MOBILE (< 768px), NÃO FAZ NADA
+  if (window.innerWidth < 768) return;
+
+  const toolbar = document.getElementById("floating-toolbar");
+  const handle = document.getElementById("toolbar-handle");
+  const rotateBtn = document.getElementById("rotate-toolbar-btn");
+  const btnContainer = document.getElementById("toolbar-buttons");
+
+  if (!toolbar || !handle || !rotateBtn) return;
+
+  // 1. Ativa o Drag and Drop (Com a correção aplicada acima)
+  makeElementDraggable(toolbar, handle);
+
+  // 2. Lógica de Rotação
+  rotateBtn.addEventListener("click", () => {
+    const isHorizontal = toolbar.classList.contains("flex-row");
+
+    // Precisamos resetar transform e bottom caso o usuário gire ANTES de arrastar
+    // Isso evita bugs visuais se ele girar a barra ainda centralizada
+    const rect = toolbar.getBoundingClientRect();
+    toolbar.style.left = rect.left + "px";
+    toolbar.style.top = rect.top + "px";
+    toolbar.style.bottom = "auto";
+    toolbar.style.transform = "none";
+
+    if (isHorizontal) {
+      // Mudar para Vertical
+      toolbar.classList.replace("flex-row", "flex-col");
+      btnContainer.classList.replace("flex-row", "flex-col");
+
+      // Ajustes na alça (handle) para visual vertical
+      handle.classList.replace("border-r", "border-b");
+      handle.classList.replace("mr-1", "mb-1");
+      handle.classList.replace("pr-2", "pb-2");
+
+      // Ajustes no botão de rotação
+      rotateBtn.parentElement.classList.replace("border-l", "border-t");
+      rotateBtn.parentElement.classList.replace("ml-1", "mt-1");
+      rotateBtn.parentElement.classList.replace("pl-2", "pt-2");
+
+      handle.querySelector("svg").classList.add("rotate-90");
+    } else {
+      // Voltar para Horizontal
+      toolbar.classList.replace("flex-col", "flex-row");
+      btnContainer.classList.replace("flex-col", "flex-row");
+
+      handle.classList.replace("border-b", "border-r");
+      handle.classList.replace("mb-1", "mr-1");
+      handle.classList.replace("pb-2", "pr-2");
+
+      rotateBtn.parentElement.classList.replace("border-t", "border-l");
+      rotateBtn.parentElement.classList.replace("mt-1", "ml-1");
+      rotateBtn.parentElement.classList.replace("pt-2", "pl-2");
+
+      handle.querySelector("svg").classList.remove("rotate-90");
+    }
+  });
+};
+
 // --- NOVA FUNÇÃO: Configurar Janela da Tabela ---
 const setupTableWindow = () => {
   const openBtn = document.getElementById("btn-tabela");
@@ -319,6 +379,7 @@ const main = async () => {
   populateVersionSelector(0, "Carregue um arquivo...");
   updateFileNameDisplay(null);
   updateEnergyDisplay(null); // Chama a função para ocultar/definir estado inicial
+  setupFloatingToolbar();
 };
 
 // --- NOVA FUNÇÃO: Tornar Elemento Redimensionável (Customizado) ---
@@ -425,7 +486,7 @@ const setupChartModal = () => {
       chartWindow.classList.remove("hidden");
       if (overlay) overlay.classList.remove("hidden"); // Mostra o overlay
 
-      // Resetar tamanho padrão ao abrir (opcional, se quiser resetar sempre)
+      // Resetar tamanho padrão ao abrir
       chartWindow.style.width = "400px";
       chartWindow.style.height = "350px";
       renderChart(canvas);
@@ -435,13 +496,14 @@ const setupChartModal = () => {
   // Fecha ao clicar no X
   closeBtn.addEventListener("click", closeChart);
 
-  // NOVO: Fecha ao clicar no fundo escuro (comportamento padrão de modal mobile)
+  // Fecha ao clicar no fundo escuro
   if (overlay) {
     overlay.addEventListener("click", closeChart);
   }
 };
 
 // --- Função para Tornar Elemento Arrastável (ATUALIZADO) ---
+
 const makeElementDraggable = (element, handle) => {
   let pos1 = 0,
     pos2 = 0,
@@ -451,34 +513,47 @@ const makeElementDraggable = (element, handle) => {
   handle.onmousedown = dragMouseDown;
 
   function dragMouseDown(e) {
-    // --- TRAVA PARA MOBILE ---
-    // Se a tela for menor que 768px (breakpoint md do Tailwind), não arrasta
+    // Apenas para Desktop
     if (window.innerWidth < 768) return;
-    // -------------------------
 
     e = e || window.event;
-    pos3 = e.clientX || (e.touches && e.touches[0].clientX);
-    pos4 = e.clientY || (e.touches && e.touches[0].clientY);
+    e.preventDefault();
+
+    // --- CORREÇÃO DO BUG DE ESTICAMENTO ---
+    // 1. Pega a posição exata onde o elemento está AGORA visualmente
+    const rect = element.getBoundingClientRect();
+
+    // 2. Define top/left explícitos baseados na posição visual atual
+    element.style.left = rect.left + "px";
+    element.style.top = rect.top + "px";
+
+    // 3. Remove as amarras do CSS que causam o conflito/esticamento
+    element.style.bottom = "auto"; // Solta o fundo para não esticar
+    element.style.transform = "none"; // Remove a centralização automática
+    element.style.right = "auto"; // Garante que right não interfira
+    // ---------------------------------------
+
+    // Pega a posição inicial do mouse
+    pos3 = e.clientX;
+    pos4 = e.clientY;
 
     document.onmouseup = closeDragElement;
     document.onmousemove = elementDrag;
 
     handle.style.cursor = "grabbing";
-    document.body.style.cursor = "grabbing";
   }
 
   function elementDrag(e) {
     e = e || window.event;
     e.preventDefault();
 
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    // Calcula o deslocamento do mouse
+    pos1 = pos3 - e.clientX;
+    pos2 = pos4 - e.clientY;
+    pos3 = e.clientX;
+    pos4 = e.clientY;
 
-    pos1 = pos3 - clientX;
-    pos2 = pos4 - clientY;
-    pos3 = clientX;
-    pos4 = clientY;
-
+    // Define a nova posição
     element.style.top = element.offsetTop - pos2 + "px";
     element.style.left = element.offsetLeft - pos1 + "px";
   }
@@ -486,14 +561,7 @@ const makeElementDraggable = (element, handle) => {
   function closeDragElement() {
     document.onmouseup = null;
     document.onmousemove = null;
-
-    // Só reseta o cursor se for desktop
-    if (window.innerWidth >= 768) {
-      handle.style.cursor = "grab";
-    } else {
-      handle.style.cursor = "default";
-    }
-    document.body.style.cursor = "default";
+    handle.style.cursor = "grab";
   }
 };
 
