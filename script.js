@@ -8,6 +8,8 @@ import {
   extractLastChelpgCharges,
   extractLastMullikenCharges,
   prepareChartData,
+  extractIRData,
+  generateIRSpectrumPoints,
 } from "./utils.js";
 import {
   initializeMeasurementTools,
@@ -24,7 +26,8 @@ let measurementTools = {};
 let lastChelpgCharges = []; //  ADICIONA ARRAY GLOBAL PARA CARGAS
 let lastMullikenCharges = []; // ADICIONA ARRAY GLOBAL PARA MULLIKEN
 let energyChartInstance = null; // guardar a instância do gráfico
-let currentCycleIndex = 0; // NOVO: Rastreia o índice atual para a tabela
+let currentCycleIndex = 0; // Rastreia o índice atual para a tabela
+let irPeaks = []; // Variável para armazenar os picos
 
 // Constantes de configuração
 const atomData = {
@@ -447,59 +450,71 @@ const makeElementResizable = (element, handle) => {
 
 // --- Configurar o Modal do Gráfico ---
 const setupChartModal = () => {
-  const openBtn = document.getElementById("btn-grafico");
+  // 1. Declaração das variáveis com os nomes NOVOS
+  const openEnergyBtn = document.getElementById("btn-grafico"); // Mudou de openBtn para openEnergyBtn
+  const openIRBtn = document.getElementById("btn-espectro"); // Novo botão
   const closeBtn = document.getElementById("close-chart-btn");
   const chartWindow = document.getElementById("chart-window");
   const chartHeader = document.getElementById("chart-header");
-  const resizeHandle = document.getElementById("resize-handle"); // Pegamos a alça
+  const chartTitle = document.querySelector("#chart-header h3");
   const canvas = document.getElementById("energyChart");
   const overlay = document.getElementById("chart-overlay");
 
+  // Torna a janela arrastável
   makeElementDraggable(chartWindow, chartHeader);
 
-  // NOVO: Torna a janela redimensionável (aumentar/diminuir)
-  if (resizeHandle && chartWindow) {
-    makeElementResizable(chartWindow, resizeHandle);
-  }
-
-  // Função para fechar (usada pelo botão e pelo clique no overlay)
+  // Função interna para fechar o modal
   const closeChart = () => {
     chartWindow.classList.add("hidden");
-    if (overlay) overlay.classList.add("hidden"); // Esconde o overlay
+    if (overlay) overlay.classList.add("hidden");
   };
 
-  if (openBtn) {
-    openBtn.addEventListener("click", () => {
-      if (cycleEnergies.length === 0) {
-        alert(
-          "Não há dados de energia para exibir. Carregue um arquivo primeiro."
-        );
-        return;
-      }
+  // Função interna para abrir o modal (reutilizável)
+  const openModal = (type) => {
+    // Verifica se há dados antes de abrir
+    if (type === "energy" && cycleEnergies.length === 0) {
+      alert(
+        "Não há dados de energia para exibir. Carregue um arquivo primeiro."
+      );
+      return;
+    }
+    if (type === "ir" && (!irPeaks || irPeaks.length === 0)) {
+      alert("Nenhum espectro IR encontrado neste arquivo.");
+      return;
+    }
 
-      // Reset de posição para mobile
-      if (window.innerWidth < 768) {
-        chartWindow.style.top = "";
-        chartWindow.style.left = "";
-      }
+    // Reset de posição para mobile
+    if (window.innerWidth < 768) {
+      chartWindow.style.top = "";
+      chartWindow.style.left = "";
+    }
 
-      chartWindow.classList.remove("hidden");
-      if (overlay) overlay.classList.remove("hidden"); // Mostra o overlay
+    // Mostra a janela
+    chartWindow.classList.remove("hidden");
+    if (overlay) overlay.classList.remove("hidden");
 
-      // Resetar tamanho padrão ao abrir
-      chartWindow.style.width = "400px";
-      chartWindow.style.height = "350px";
-      renderChart(canvas);
-    });
+    // Configura título e renderiza
+    if (type === "energy") {
+      if (chartTitle) chartTitle.textContent = "Energia por Ciclo";
+      renderChart(canvas, "energy");
+    } else if (type === "ir") {
+      if (chartTitle) chartTitle.textContent = "Espectro Infravermelho";
+      renderChart(canvas, "ir");
+    }
+  };
+
+  // 2. Listeners usando as variáveis corretas
+  if (openEnergyBtn) {
+    openEnergyBtn.addEventListener("click", () => openModal("energy"));
   }
 
-  // Fecha ao clicar no X
-  closeBtn.addEventListener("click", closeChart);
-
-  // Fecha ao clicar no fundo escuro
-  if (overlay) {
-    overlay.addEventListener("click", closeChart);
+  if (openIRBtn) {
+    openIRBtn.addEventListener("click", () => openModal("ir"));
   }
+
+  // Listeners de fechar
+  if (closeBtn) closeBtn.addEventListener("click", closeChart);
+  if (overlay) overlay.addEventListener("click", closeChart);
 };
 
 // --- Função para Tornar Elemento Arrastável (ATUALIZADO) ---
@@ -566,56 +581,63 @@ const makeElementDraggable = (element, handle) => {
 };
 
 // ---Renderizar o Gráfico ---
-const renderChart = (canvasElement) => {
+const renderChart = (canvasElement, type = "energy") => {
   if (energyChartInstance) {
-    energyChartInstance.destroy(); // Destrói o anterior para não sobrepor
+    energyChartInstance.destroy();
   }
 
-  const chartConfig = prepareChartData(cycleEnergies);
+  let config;
 
-  // Ajuste fino para responsividade do Chart.js dentro do modal
-  const config = {
-    type: "line",
-    data: chartConfig,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: {
-          beginAtZero: false, // Energias geralmente não começam em 0
-          title: {
-            display: true,
-            text: "Energia (Hartree)",
-            font: {
-              weight: "bold",
-              family: "'Roboto Mono', monospace",
-              size: 14,
-            },
-          },
+  if (type === "energy") {
+    const chartData = prepareChartData(cycleEnergies);
+    config = {
+      type: "line",
+      data: chartData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { title: { display: true, text: "Energia (Eh)" } },
+          x: { title: { display: true, text: "Ciclos" } },
         },
-        x: {
-          title: {
-            display: true,
-            text: "Ciclos",
-            font: {
-              weight: "bold",
-              family: "'Roboto Mono', monospace",
-              size: 14,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `Energia: ${ctx.parsed.y.toFixed(6)} Eh`,
             },
           },
         },
       },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              return `Energia: ${context.parsed.y.toFixed(6)} Eh`;
-            },
+    };
+  } else if (type === "ir") {
+    // Gera os dados contínuos (Lorentziana)
+    const chartData = generateIRSpectrumPoints(irPeaks);
+
+    config = {
+      type: "line",
+      data: chartData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: { display: true, text: "Número de Onda (cm⁻¹)" },
+            reverse: true, // IMPORTANTE: Espectros IR são plotados invertidos (alto para baixo)
+          },
+          y: {
+            title: { display: true, text: "Intensidade (km/mol)" },
+            beginAtZero: true,
           },
         },
+        interaction: {
+          mode: "nearest",
+          axis: "x",
+          intersect: false,
+        },
+        elements: { point: { radius: 0 } }, // Otimização para muitos pontos
       },
-    },
-  };
+    };
+  }
 
   energyChartInstance = new Chart(canvasElement, config);
 };
@@ -679,6 +701,11 @@ const processFileContent = (fileText, sourceName) => {
   cycleEnergies = extractCycleEnergies(fileText); // Retorna [ energiaCiclo1, energiaCiclo2, ... ]
   lastChelpgCharges = extractLastChelpgCharges(fileText); // cargas
   lastMullikenCharges = extractLastMullikenCharges(fileText); // CARGAS MULLIKEN
+  // NOVO: Extrair dados IR
+  irPeaks = extractIRData(fileText);
+  if (irPeaks.length > 0) {
+    console.log(`Espectro IR encontrado: ${irPeaks.length} picos.`);
+  }
 
   // ENVIA AS CARGAS PARA O MÓDULO DE MEDIÇÃO
   if (setChargeData) {

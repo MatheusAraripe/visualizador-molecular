@@ -1,5 +1,96 @@
 import * as THREE from "three";
 
+export const extractIRData = (text) => {
+  const lines = text.split("\n");
+  const peaks = [];
+  let inSection = false;
+
+  for (const line of lines) {
+    // Detecta o início da seção
+    if (line.includes("IR SPECTRUM")) {
+      inSection = true;
+      continue;
+    }
+
+    if (inSection) {
+      // Pula linhas de cabeçalho ou separadores
+      if (line.includes("------") || line.includes("Mode")) continue;
+
+      // Detecta o fim da seção (linha vazia ou início de texto descritivo)
+      if (line.trim() === "" || line.includes("The first frequency")) {
+        if (peaks.length > 0) break;
+        continue;
+      }
+
+      const parts = line.trim().split(/\s+/);
+      // Formato esperado: "6: 15.44 ..."
+      // parts[0]: "6:", parts[1]: freq, parts[3]: int
+      if (parts.length > 3 && parts[0].includes(":")) {
+        const freq = parseFloat(parts[1]);
+        const inten = parseFloat(parts[3]);
+
+        if (!isNaN(freq) && !isNaN(inten)) {
+          peaks.push({ freq, inten });
+        }
+      }
+    }
+  }
+  return peaks;
+};
+
+/**
+ * @param {Array} peaks - Array de objetos {freq, inten}
+ * @param {number} fwhm - Largura à meia altura (padrão 20 cm-1)
+ * @param {number} resolution - Resolução em cm-1 (padrão 1)
+ */
+export const generateIRSpectrumPoints = (peaks, fwhm = 20, resolution = 1) => {
+  if (!peaks || peaks.length === 0) return { labels: [], data: [] };
+
+  // Define o intervalo do eixo X (Wavenumber)
+  const freqs = peaks.map((p) => p.freq);
+  const minFreq = Math.min(...freqs);
+  const maxFreq = Math.max(...freqs);
+
+  // Margem de 100 cm-1 nas bordas
+  const startX = Math.max(0, Math.floor(minFreq) - 100);
+  const endX = Math.ceil(maxFreq) + 100;
+
+  const labels = [];
+  const data = [];
+  const gamma = fwhm / 2; // HWHM
+
+  // Calcula a intensidade em cada ponto X somando a contribuição de cada pico
+  for (let x = startX; x <= endX; x += resolution) {
+    let y = 0;
+    for (const peak of peaks) {
+      // Fórmula Lorentziana
+      y +=
+        (peak.inten * gamma) /
+        (Math.PI * (Math.pow(x - peak.freq, 2) + Math.pow(gamma, 2)));
+    }
+    labels.push(x);
+    data.push(y);
+  }
+
+  // Prepara objeto para o Chart.js
+  return {
+    labels: labels,
+    datasets: [
+      {
+        label: "Espectro Infravermelho",
+        data: data,
+        borderColor: "#ef4444", // Vermelho (red-500)
+        backgroundColor: "rgba(239, 68, 68, 0.1)",
+        borderWidth: 2,
+        pointRadius: 0, // Remove bolinhas para parecer uma linha contínua
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.4,
+      },
+    ],
+  };
+};
+
 /**
  * Carrega um arquivo de texto do servidor.
  */
