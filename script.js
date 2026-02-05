@@ -26,6 +26,7 @@ let measurementTools = {};
 let lastChelpgCharges = []; //  ADICIONA ARRAY GLOBAL PARA CARGAS
 let lastMullikenCharges = []; // ADICIONA ARRAY GLOBAL PARA MULLIKEN
 let energyChartInstance = null; // guardar a instância do gráfico
+let irChartInstance = null;
 let currentCycleIndex = 0; // Rastreia o índice atual para a tabela
 let irPeaks = []; // Variável para armazenar os picos
 
@@ -160,13 +161,13 @@ const renderTable = (index) => {
             <td class="px-4 py-2 font-medium text-[#252525] whitespace-nowrap">${i}</td>
             <td class="px-4 py-2">${atom.symbol}</td>
             <td class="px-4 py-2 font-mono text-xs">${atom.vec.x.toFixed(
-              6
+              6,
             )}</td>
             <td class="px-4 py-2 font-mono text-xs">${atom.vec.y.toFixed(
-              6
+              6,
             )}</td>
             <td class="px-4 py-2 font-mono text-xs">${atom.vec.z.toFixed(
-              6
+              6,
             )}</td>
         `;
     tbody.appendChild(row);
@@ -323,7 +324,7 @@ const main = async () => {
   const threeJsInitialized = initThreeJS();
   if (!threeJsInitialized) {
     console.error(
-      "Falha na inicialização do Three.js. A aplicação não pode continuar."
+      "Falha na inicialização do Three.js. A aplicação não pode continuar.",
     );
     document.body.innerHTML =
       "<p style='color: red; padding: 20px;'>Erro crítico ao inicializar a visualização 3D.</p>";
@@ -367,7 +368,7 @@ const main = async () => {
       // Objeto com refs do DOM (agora verificado dentro de init)
       logContainer: logContainer, // Passa mesmo que nulo, init verifica
       instructions: instructions, // Passa mesmo que nulo, init verifica
-    }
+    },
   );
 
   setupTooltipListeners(); // exibe tooltip
@@ -450,71 +451,68 @@ const makeElementResizable = (element, handle) => {
 
 // --- Configurar o Modal do Gráfico ---
 const setupChartModal = () => {
-  // 1. Declaração das variáveis com os nomes NOVOS
-  const openEnergyBtn = document.getElementById("btn-grafico"); // Mudou de openBtn para openEnergyBtn
-  const openIRBtn = document.getElementById("btn-espectro"); // Novo botão
-  const closeBtn = document.getElementById("close-chart-btn");
-  const chartWindow = document.getElementById("chart-window");
-  const chartHeader = document.getElementById("chart-header");
-  const chartTitle = document.querySelector("#chart-header h3");
-  const canvas = document.getElementById("energyChart");
-  const overlay = document.getElementById("chart-overlay");
+  // --- ELEMENTOS ENERGIA ---
+  const winEnergy = document.getElementById("energy-chart-window");
+  const headEnergy = document.getElementById("energy-header");
+  const closeEnergy = document.getElementById("close-energy-btn");
+  const handleEnergy = document.getElementById("energy-resize-handle");
+  const canvasEnergy = document.getElementById("energyChartCanvas");
 
-  // Torna a janela arrastável
-  makeElementDraggable(chartWindow, chartHeader);
+  // --- ELEMENTOS IR ---
+  const winIR = document.getElementById("ir-chart-window");
+  const headIR = document.getElementById("ir-header");
+  const closeIR = document.getElementById("close-ir-btn");
+  const handleIR = document.getElementById("ir-resize-handle");
+  const canvasIR = document.getElementById("irChartCanvas");
 
-  // Função interna para fechar o modal
-  const closeChart = () => {
-    chartWindow.classList.add("hidden");
-    if (overlay) overlay.classList.add("hidden");
-  };
+  // Botões da Sidebar
+  const btnEnergy = document.getElementById("btn-grafico");
+  const btnIR = document.getElementById("btn-espectro");
 
-  // Função interna para abrir o modal (reutilizável)
-  const openModal = (type) => {
-    // Verifica se há dados antes de abrir
-    if (type === "energy" && cycleEnergies.length === 0) {
-      alert(
-        "Não há dados de energia para exibir. Carregue um arquivo primeiro."
-      );
-      return;
-    }
-    if (type === "ir" && (!irPeaks || irPeaks.length === 0)) {
-      alert("Nenhum espectro IR encontrado neste arquivo.");
-      return;
-    }
+  // 1. Configurar Drag & Drop (Mover janelas)
+  if (winEnergy && headEnergy) makeElementDraggable(winEnergy, headEnergy);
+  if (winIR && headIR) makeElementDraggable(winIR, headIR);
 
-    // Reset de posição para mobile
-    if (window.innerWidth < 768) {
-      chartWindow.style.top = "";
-      chartWindow.style.left = "";
-    }
+  // 2. Configurar Resize (Redimensionar janelas)
+  // AQUI estava o problema: precisamos aplicar a cada janela individualmente
+  if (winEnergy && handleEnergy) makeElementResizable(winEnergy, handleEnergy);
+  if (winIR && handleIR) makeElementResizable(winIR, handleIR);
 
-    // Mostra a janela
-    chartWindow.classList.remove("hidden");
-    if (overlay) overlay.classList.remove("hidden");
+  // --- FUNÇÕES DE ABRIR ---
 
-    // Configura título e renderiza
-    if (type === "energy") {
-      if (chartTitle) chartTitle.textContent = "Energia por Ciclo";
-      renderChart(canvas, "energy");
-    } else if (type === "ir") {
-      if (chartTitle) chartTitle.textContent = "Espectro Infravermelho";
-      renderChart(canvas, "ir");
-    }
-  };
-
-  // 2. Listeners usando as variáveis corretas
-  if (openEnergyBtn) {
-    openEnergyBtn.addEventListener("click", () => openModal("energy"));
+  // Abrir Energia
+  if (btnEnergy) {
+    btnEnergy.addEventListener("click", () => {
+      if (cycleEnergies.length === 0) {
+        alert("Sem dados de energia.");
+        return;
+      }
+      winEnergy.classList.remove("hidden");
+      // Renderiza no canvas específico de energia
+      renderChart(canvasEnergy, "energy");
+    });
   }
 
-  if (openIRBtn) {
-    openIRBtn.addEventListener("click", () => openModal("ir"));
+  // Abrir IR
+  if (btnIR) {
+    btnIR.addEventListener("click", () => {
+      if (!irPeaks || irPeaks.length === 0) {
+        alert("Sem dados de espectro IR.");
+        return;
+      }
+      winIR.classList.remove("hidden");
+      // Renderiza no canvas específico de IR
+      renderChart(canvasIR, "ir");
+    });
   }
 
-  // Listeners de fechar
-  if (closeBtn) closeBtn.addEventListener("click", closeChart);
-  if (overlay) overlay.addEventListener("click", closeChart);
+  // --- FUNÇÕES DE FECHAR ---
+  if (closeEnergy)
+    closeEnergy.addEventListener("click", () =>
+      winEnergy.classList.add("hidden"),
+    );
+  if (closeIR)
+    closeIR.addEventListener("click", () => winIR.classList.add("hidden"));
 };
 
 // --- Função para Tornar Elemento Arrastável (ATUALIZADO) ---
@@ -581,21 +579,18 @@ const makeElementDraggable = (element, handle) => {
 };
 
 // ---Renderizar o Gráfico ---
-const renderChart = (canvasElement, type = "energy") => {
-  if (energyChartInstance) {
-    energyChartInstance.destroy();
-  }
-
-  let config;
-
+const renderChart = (canvasElement, type) => {
+  // 1. Configuração e Limpeza Específica por Tipo
   if (type === "energy") {
+    if (energyChartInstance) energyChartInstance.destroy(); // Destroi apenas o de energia
+
     const chartData = prepareChartData(cycleEnergies);
-    config = {
+    const config = {
       type: "line",
       data: chartData,
       options: {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: false, // Importante para o resize funcionar!
         scales: {
           y: { title: { display: true, text: "Energia (Eh)" } },
           x: { title: { display: true, text: "Ciclos" } },
@@ -609,37 +604,34 @@ const renderChart = (canvasElement, type = "energy") => {
         },
       },
     };
+    energyChartInstance = new Chart(canvasElement, config);
   } else if (type === "ir") {
-    // Gera os dados contínuos (Lorentziana)
-    const chartData = generateIRSpectrumPoints(irPeaks);
+    if (irChartInstance) irChartInstance.destroy(); // Destroi apenas o de IR
 
-    config = {
+    const chartData = generateIRSpectrumPoints(irPeaks);
+    const config = {
       type: "line",
       data: chartData,
       options: {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: false, // Importante para o resize funcionar!
         scales: {
           x: {
             title: { display: true, text: "Número de Onda (cm⁻¹)" },
-            reverse: true, // IMPORTANTE: Espectros IR são plotados invertidos (alto para baixo)
+            reverse: true,
+            ticks: { maxTicksLimit: 8, maxRotation: 0, minRotation: 0 },
           },
           y: {
             title: { display: true, text: "Intensidade (km/mol)" },
             beginAtZero: true,
           },
         },
-        interaction: {
-          mode: "nearest",
-          axis: "x",
-          intersect: false,
-        },
-        elements: { point: { radius: 0 } }, // Otimização para muitos pontos
+        interaction: { mode: "nearest", axis: "x", intersect: false },
+        elements: { point: { radius: 0 } },
       },
     };
+    irChartInstance = new Chart(canvasElement, config);
   }
-
-  energyChartInstance = new Chart(canvasElement, config);
 };
 
 /**
@@ -721,10 +713,10 @@ const processFileContent = (fileText, sourceName) => {
     populateVersionSelector(allMoleculeVersions.length); // Popula com base no número de geometrias
     displayMoleculeVersion(0); // Exibe o primeiro ciclo
     console.log(
-      `Cargas CHELPG encontradas: ${lastChelpgCharges.length} átomos.`
+      `Cargas CHELPG encontradas: ${lastChelpgCharges.length} átomos.`,
     );
     console.log(
-      `Cargas Mulliken encontradas: ${lastMullikenCharges.length} átomos.`
+      `Cargas Mulliken encontradas: ${lastMullikenCharges.length} átomos.`,
     );
   } else {
     updateFileNameDisplay(sourceName + " (Inválido)");
@@ -869,7 +861,7 @@ const initThreeJS = () => {
       75,
       initialWidth / initialHeight,
       0.1,
-      1000
+      1000,
     );
     camera.position.z = 25;
 
@@ -937,7 +929,7 @@ const drawBonds = (atoms) => {
           0.04,
           0.04,
           distance,
-          16
+          16,
         );
         const bondMesh = new THREE.Mesh(bondGeometry, bondMaterial);
         const midpoint = new THREE.Vector3()
@@ -949,7 +941,7 @@ const drawBonds = (atoms) => {
           .normalize();
         bondMesh.quaternion.setFromUnitVectors(
           new THREE.Vector3(0, 1, 0),
-          direction
+          direction,
         );
         moleculeGroup.add(bondMesh);
         bondCount++; // Incrementa
